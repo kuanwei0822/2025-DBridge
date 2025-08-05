@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title th:text="'資料表詳情：' + ${table.tableName}"></title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 2em;
+      line-height: 1.6;
+    }
+    h1, h2, h3 {
+      color: #333;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .section-header {
+      border-bottom: 2px solid #333;
+      padding-bottom: 0.5em;
+      margin-top: 2em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1em;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+      font-weight: bold;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 2em;
+      padding: 10px 15px;
+      background-color: #007BFF;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+    }
+    .back-link:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1 th:text="'資料表詳情：' + ${table.tableName}"></h1>
+
+  <h3 class="section-header">資料表描述</h3>
+  <p th:text="${table.remarks} ?: '無描述'"></p>
+
+  <h3 class="section-header">欄位（Columns）</h3>
+  <table>
+    <thead>
+    <tr>
+      <th>名稱</th>
+      <th>型別</th>
+      <th>大小</th>
+      <th>可否為空</th>
+      <th>預設值</th>
+      <th>主鍵</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="col : ${table.columns}">
+      <td th:text="${col.columnName}"></td>
+      <td th:text="${col.dataType}"></td>
+      <td th:text="${col.columnSize}"></td>
+      <td th:text="${col.nullable.displayName}"></td>
+      <td th:text="${col.defaultValue} ?: '無'"></td>
+      <td th:text="${col.primaryKey} ? '✔' : ''"></td>
+    </tr>
+    </tbody>
+  </table>
+
+  <h3 class="section-header">約束（Constraints）</h3>
+  <ul>
+    <li th:each="c : ${table.constraints}">
+      <span th:text="'[' + ${c.constraintType.displayName} + '] ' + ${c.constraintName} + ' - ' + ${c.checkClause}"></span>
+    </li>
+    <li th:if="${table.constraints.isEmpty()}">無任何約束</li>
+  </ul>
+
+  <a href="/DBrige/metadata" class="back-link">← 返回資料表列表</a>
+</div>
+</body>
+</html>
