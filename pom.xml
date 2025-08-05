@@ -98,8 +98,8 @@
     </dependencies>
 
     <build>
+        <finalName>DBridge</finalName>
         <plugins>
-            <!-- Spring Boot Plugin -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
