@@ -19,7 +19,6 @@ import java.util.List;
  */
 @Slf4j
 @Component
-@Profile("postgresql")
 public class PostgreSqlMetadataExtractor{
 
     public List<PostgreTableMeta> extractMetadata(Connection connection) throws SQLException {
