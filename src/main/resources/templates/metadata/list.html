@@ -1,0 +1,16 @@
+<!-- resources/templates/metadata/list.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>PostgreSQL Tables</title>
+</head>
+<body>
+<h1>PostgreSQL Table Metadata</h1>
+<ul>
+    <li th:each="table : ${tables}">
+        <a th:href="@{/metadata/detail(tableName=${table.tableName})}"
+           th:text="${table.tableName}">Table Name</a>
+    </li>
+</ul>
+</body>
+</html>

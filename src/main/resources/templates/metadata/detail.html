@@ -1,0 +1,40 @@
+<!-- resources/templates/metadata/detail.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title th:text="'Detail: ' + ${table.tableName}">Table Detail</title>
+</head>
+<body>
+<h2 th:text="'Table: ' + ${table.tableName}"></h2>
+<p th:text="${table.remarks} ?: 'No remarks'"></p>
+
+<h3>Columns</h3>
+<table border="1">
+  <tr>
+    <th>Name</th>
+    <th>Type</th>
+    <th>Size</th>
+    <th>Nullable</th>
+    <th>Default</th>
+    <th>Primary Key</th>
+  </tr>
+  <tr th:each="col : ${table.columns}">
+    <td th:text="${col.columnName}"></td>
+    <td th:text="${col.dataType}"></td>
+    <td th:text="${col.columnSize}"></td>
+    <td th:text="${col.nullable.displayName}"></td>
+    <td th:text="${col.defaultValue}"></td>
+    <td th:text="${col.primaryKey} ? '✔' : ''"></td>
+  </tr>
+</table>
+
+<h3>Constraints</h3>
+<ul>
+  <li th:each="c : ${table.constraints}">
+    <span th:text="'[' + c.constraintType.displayName + '] ' + c.constraintName + ' - ' + c.checkClause"></span>
+  </li>
+</ul>
+
+<a href="/metadata">← Back to Table List</a>
+</body>
+</html>
