@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${tableName} + ' 的資料內容'"></title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2em;
+        }
+        h1 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1em;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .error-message {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div th:if="${errorMessage}">
+    <h1 class="error-message" th:text="${errorMessage}"></h1>
+    <p>請檢查您的資料庫連線或資料表名稱是否正確。</p>
+</div>
+
+<div th:unless="${errorMessage}">
+    <h1 th:text="'資料表：' + ${tableName}"></h1>
+
+    <div th:if="${rows.isEmpty()}">
+        <p>此資料表沒有任何資料。</p>
+    </div>
+
+    <div th:unless="${rows.isEmpty()}">
+        <table>
+            <thead>
+            <tr>
+                <th th:each="columnName : ${columnNames}" th:text="${columnName}"></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="row : ${rows}">
+                <td th:each="columnName : ${columnNames}" th:text="${row.get(columnName)}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</body>
+</html>

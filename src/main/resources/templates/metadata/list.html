@@ -1,16 +1,72 @@
-<!-- resources/templates/metadata/list.html -->
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>PostgreSQL Tables</title>
+    <meta charset="UTF-8">
+    <title>資料表列表</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2em;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #333;
+            padding-bottom: 0.5em;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1em;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-<h1>PostgreSQL Table Metadata</h1>
-<ul>
-    <li th:each="table : ${tables}">
-        <a th:href="@{/metadata/detail(tableName=${table.tableName})}"
-           th:text="${table.tableName}">Table Name</a>
-    </li>
-</ul>
+
+<div class="container">
+    <h1>資料表列表</h1>
+
+    <table>
+        <thead>
+        <tr>
+            <th>資料表名稱</th>
+            <th>描述</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="table : ${tables}">
+            <td>
+                <a th:href="@{/metadata/detail(tableName=${table.tableName})}"
+                   th:text="${table.tableName}">Table Name</a>
+            </td>
+            <td th:text="${table.remarks} ?: '無描述'"></td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
 </body>
 </html>
