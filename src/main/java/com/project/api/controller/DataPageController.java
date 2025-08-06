@@ -23,7 +23,8 @@ public class DataPageController {
     @GetMapping("/table")
     public String showTableData(@RequestParam("name") String tableName, Model model) {
         try {
-                String sql = "SELECT * FROM " + tableName + " limit 5000;";
+
+            String sql = "SELECT * FROM " + tableName + " limit 5000;";
             List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
 
             List<String> columnNames = new ArrayList<>();
