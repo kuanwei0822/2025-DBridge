@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Mongo Query (Tree)</title>
+    <style>
+        /* 整體佈局與字體 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            padding: 2rem;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #343a40;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+            margin-bottom: 25px;
+        }
+
+        /* 控制面板（表單）樣式 */
+        .controls-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1; /* 讓元素橫跨所有欄位 */
+        }
+
+        label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+
+        select, input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        select:focus, input:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
+        textarea {
+            width: 100%;
+            height: 5em;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            grid-column: 1 / -1;
+            justify-self: start;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .err {
+            color: #dc3545;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        /* 查詢結果資訊 */
+        .result-summary {
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 15px;
+            color: #6c757d;
+        }
+        .result-summary b {
+            color: #343a40;
+        }
+
+        /* JSON 樹狀結構樣式 */
+        .json-tree {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .doc {
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            background: #fff;
+        }
+
+        /* JSON 顏色樣式 */
+        .key { color: #870000; }
+        .str { color: #064010; }
+        .num { color: #003634; }
+        .bool{ color: #205c9a; }
+        .null{ color: #c44040; }
+        .id  { color: #5d288d; }
+        .kv  { margin-left: 20px; }
+
+        details > summary { cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Mongo Query (Tree)</h2>
+
+    <form method="get" th:action="@{/mongo/query}">
+        <div class="controls-panel">
+            <div class="form-group">
+                <label>DB:</label>
+                <select name="db">
+                    <option th:each="d : ${databases}" th:value="${d}" th:text="${d}" th:selected="${d} == ${db}"></option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Collection:</label>
+                <select name="coll">
+                    <option th:each="c : ${collections}" th:value="${c}" th:text="${c}" th:selected="${c} == ${coll}"></option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Page</label>
+                <input type="number" name="page" min="1" th:value="${page}"/>
+            </div>
+            <div class="form-group">
+                <label>Size</label>
+                <input type="number" name="size" min="1" max="500" th:value="${size}"/>
+            </div>
+
+            <div class="form-group full-width">
+                <label>Filter (JSON)</label>
+                <textarea name="filter" th:text="${filter}"></textarea>
+                <div class="err" th:if="${error_filter}" th:text="${error_filter}"></div>
+            </div>
+
+            <div class="form-group full-width">
+                <label>Projection (JSON)</label>
+                <textarea name="projection" th:text="${projection}"></textarea>
+                <div class="err" th:if="${error_projection}" th:text="${error_projection}"></div>
+            </div>
+
+            <div class="form-group full-width">
+                <label>Sort (JSON)</label>
+                <textarea name="sort" th:text="${sort}"></textarea>
+                <div class="err" th:if="${error_sort}" th:text="${error_sort}"></div>
+            </div>
+
+            <button type="submit">Run Query</button>
+        </div>
+    </form>
+
+    <div class="result-summary">
+        Total: <b th:text="${total}"></b> | Pages: <b th:text="${pages}"></b>
+    </div>
+
+    <div id="container" class="json-tree"></div>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const rows = /*[[${rows}]]*/ [];
+    /*]]>*/
+
+    const el = document.getElementById('container');
+
+    function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));}
+
+    function renderValue(v){
+        if (v === null) return `<span class="null">null</span>`;
+        const t = typeof v;
+        if (t === 'string'){
+            if (/^[0-9a-fA-F]{24}$/.test(v)) return `<span class="id">ObjectId("${v}")</span>`;
+            if (/^\d{4}-\d{2}-\d{2}T/.test(v)) return `<span class="str">"${escapeHtml(v)}"</span>`;
+            return `<span class="str">"${escapeHtml(v)}"</span>`;
+        }
+        if (t === 'number') return `<span class="num">${v}</span>`;
+        if (t === 'boolean') return `<span class="bool">${v}</span>`;
+        if (Array.isArray(v)) return renderArray(v);
+        if (t === 'object') return renderObject(v);
+        return `<span>${escapeHtml(v)}</span>`;
+    }
+
+    function renderArray(a){
+        if (a.length === 0) return `[]`;
+        const inner = a.map((v,i)=>`<div class="kv">[${i}] : ${renderValue(v)}</div>`).join('');
+        return `<details open><summary>Array(${a.length})</summary>${inner}</details>`;
+    }
+
+    function renderObject(o){
+        const ks = Object.keys(o);
+        if (ks.length === 0) return `{}`;
+        const inner = ks.map(k=>`<div class="kv"><span class="key">"${escapeHtml(k)}"</span>: ${renderValue(o[k])}</div>`).join('');
+        return `<details open><summary>Object</summary>${inner}</details>`;
+    }
+
+    function renderDocs(list){
+        if (!list || list.length === 0){ el.innerHTML = '<p>No results</p>'; return; }
+        el.innerHTML = list.map(doc=>`<div class="doc">${renderObject(doc)}</div>`).join('');
+    }
+
+    renderDocs(rows);
+</script>
+</body>
+</html>
