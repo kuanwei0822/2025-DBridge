@@ -95,11 +95,18 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Mongodb Dependency -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
+        <finalName>DBridge</finalName>
         <plugins>
-            <!-- Spring Boot Plugin -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
