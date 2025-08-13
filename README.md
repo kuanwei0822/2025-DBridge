@@ -7,6 +7,10 @@
 
 - 17 (OpenJDK or Oracle JDK)
 
+### Docker Compose 設定
+
+- 提供 PostgreSQL 和 MongoDB 服務，用於開發及測試。
+
 ### Profile 設定
 
 若需要「系統連線」時可指定 `profile` 參數來指定設定檔。
