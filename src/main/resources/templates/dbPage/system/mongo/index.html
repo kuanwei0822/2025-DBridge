@@ -102,7 +102,7 @@
     <h2>Mongo Browser</h2>
 
     <div class="section">
-        <form method="get" th:action="@{/mongo}" class="form-group">
+        <form method="get" th:action="@{/templates/dbPage/system/mongo}" class="form-group">
             <label for="db-select">Database:</label>
             <select name="db" id="db-select" onchange="this.form.submit()">
                 <option value="">-- choose --</option>
@@ -114,7 +114,7 @@
     <div th:if="${db}">
         <h3 th:text="'DB: ' + ${db}"></h3>
         <div class="section">
-            <form method="get" th:action="@{/mongo/query}" class="form-group">
+            <form method="get" th:action="@{/templates/dbPage/system/mongo/query}" class="form-group">
                 <input type="hidden" name="db" th:value="${db}"/>
                 <label for="coll-select">Collection:</label>
                 <select name="coll" required id="coll-select">
