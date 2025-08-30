@@ -59,7 +59,7 @@
         <tbody>
         <tr th:each="table : ${tables}">
             <td>
-                <a th:href="@{/metadata/detail(tableName=${table.tableName})}"
+                <a th:href="@{/templates/dbPage/system/postgresql/detail(tableName=${table.tableName})}"
                    th:text="${table.tableName}">Table Name</a>
             </td>
             <td th:text="${table.remarks} ?: '無描述'"></td>
