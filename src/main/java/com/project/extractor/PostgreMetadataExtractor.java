@@ -2,7 +2,6 @@ package com.project.extractor;
 
 import com.project.extractor.model.PostgreTableMeta;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
@@ -19,9 +18,13 @@ import java.util.List;
  */
 @Slf4j
 @Component
-public class PostgreSqlMetadataExtractor{
+public class PostgreMetadataExtractor {
 
-    public List<PostgreTableMeta> extractMetadata(Connection connection) throws SQLException {
+    /**
+     * 主方法 :
+     * 從資料庫連線中取得所有表格的 Metadata。
+     */
+    public List<PostgreTableMeta> extractTablesMetadata(Connection connection) throws SQLException {
         DatabaseMetaData metaData = connection.getMetaData();
         String catalog = connection.getCatalog();
         String schema = connection.getSchema();
@@ -42,6 +45,19 @@ public class PostgreSqlMetadataExtractor{
 
         return postgreTableMetas;
     }
+
+    /**
+     * 主方法 :
+     * 從資料庫連線中取得所有表格 List。
+     */
+    public List<String> extractTables(Connection connection) throws SQLException {
+        DatabaseMetaData metaData = connection.getMetaData();
+        String catalog = connection.getCatalog();
+        String schema = connection.getSchema();
+
+        return getTableNames(metaData, catalog, schema);
+    }
+
 
     /**
      * 獲取指定 catalog(DB) 和 schema 下的所有表格名稱
