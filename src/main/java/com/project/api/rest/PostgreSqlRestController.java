@@ -2,9 +2,10 @@ package com.project.api.rest;
 
 import com.project.extractor.model.PostgreTableMeta;
 import com.project.model.request.SchemaRequest;
+import com.project.model.response.ApiResponse;
+import com.project.model.response.ApiResponseMapper;
 import com.project.service.PostgreMetadataExtractionService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,33 +22,33 @@ import java.util.List;
 public class PostgreSqlRestController {
 
     private final PostgreMetadataExtractionService postgreMetadataExtractionService;
-
+    private final ApiResponseMapper apiResponseMapper;
     /**
      * 獲取 PostgreSQL 資料庫中的所有 Schema。
      */
     @PostMapping("/schemas")
-    public ResponseEntity<List<String>> getSchemas() {
+    public ApiResponse<List<String>> getSchemas() {
         List<String> schemas = postgreMetadataExtractionService.extractSchemas();
-        return ResponseEntity.ok(schemas);
+        return apiResponseMapper.success("0", schemas);
     }
 
     /**
      * 獲取 PostgreSQL 資料庫中的所有表格。
      */
     @PostMapping("/tables")
-    public ResponseEntity<List<String>> getTables(
+    public ApiResponse<List<String>> getTables(
             @RequestBody SchemaRequest requestBody) {
         List<String> tables = postgreMetadataExtractionService.extractTables(requestBody);
-        return ResponseEntity.ok(tables);
+        return apiResponseMapper.success("0", tables);
     }
 
     /**
      * 獲取 PostgreSQL 資料庫中的所有表格的 Metadata。
      */
     @PostMapping("/tables/metadata")
-    public ResponseEntity<List<PostgreTableMeta>> getMetadataTables(
+    public ApiResponse<List<PostgreTableMeta>> getMetadataTables(
             @RequestBody SchemaRequest requestBody) {
         List<PostgreTableMeta> tables = postgreMetadataExtractionService.extractTablesMetadata(requestBody);
-        return ResponseEntity.ok(tables);
+        return apiResponseMapper.success("0", tables);
     }
 }
