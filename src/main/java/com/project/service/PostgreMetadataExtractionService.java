@@ -3,6 +3,7 @@ package com.project.service;
 import com.project.extractor.PostgreMetadataExtractor;
 import com.project.extractor.model.PostgreTableMeta;
 import com.project.model.request.SchemaRequest;
+import com.project.model.request.TableRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -59,6 +60,18 @@ public class PostgreMetadataExtractionService {
         } catch (SQLException ex) {
             log.error("PostgreMetadataExtractionService extractTablesMetadata 提取資料庫 metadata 失敗: {}", ex.getMessage(), ex);
             return Collections.emptyList();
+        }
+    }
+
+    /**
+     * 取出資料庫中單一表格的 Metadata。
+     */
+    public PostgreTableMeta extractTableMetadata(TableRequest requestBody) {
+        try (Connection conn = dataSource.getConnection()) {
+            return postgreMetadataExtractor.extractTableMetadata(conn, requestBody.getSchema(), requestBody.getTableName());
+        } catch (SQLException ex) {
+            log.error("PostgreMetadataExtractionService extractTableMetadata 提取資料庫 metadata 失敗: {}", ex.getMessage(), ex);
+            return null;
         }
     }
 }

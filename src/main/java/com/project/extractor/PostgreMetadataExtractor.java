@@ -68,6 +68,25 @@ public class PostgreMetadataExtractor {
 
     /**
      * 主方法 :
+     * 從資料庫連線中取得單一表格的 Metadata。
+     */
+    public PostgreTableMeta extractTableMetadata(Connection connection, String schema, String tableName) throws SQLException {
+        DatabaseMetaData metaData = connection.getMetaData();
+        String catalog = connection.getCatalog();
+
+        PostgreTableMeta postgreTableMeta = new PostgreTableMeta();
+        postgreTableMeta.setTableName(tableName);
+        postgreTableMeta.setRemarks(getTableRemarks(metaData, catalog, schema, tableName));
+        postgreTableMeta.setPrimaryKeys(getPrimaryKeys(metaData, catalog, schema, tableName));
+        postgreTableMeta.setColumns(getColumns(metaData, catalog, schema, tableName, postgreTableMeta.getPrimaryKeys()));
+        postgreTableMeta.setForeignKeys(getForeignKeys(metaData, catalog, schema, tableName));
+        postgreTableMeta.setConstraints(getConstraints(connection, schema, tableName)); // custom query
+
+        return postgreTableMeta;
+    }
+
+    /**
+     * 主方法 :
      * 從資料庫連線中取得所有表格 List。
      */
     public List<String> extractTables(Connection connection, String schema) throws SQLException {

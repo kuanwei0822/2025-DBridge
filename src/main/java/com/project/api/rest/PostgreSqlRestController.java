@@ -2,6 +2,7 @@ package com.project.api.rest;
 
 import com.project.extractor.model.PostgreTableMeta;
 import com.project.model.request.SchemaRequest;
+import com.project.model.request.TableRequest;
 import com.project.model.response.ApiResponse;
 import com.project.model.response.ApiResponseMapper;
 import com.project.service.PostgreMetadataExtractionService;
@@ -50,5 +51,15 @@ public class PostgreSqlRestController {
             @RequestBody SchemaRequest requestBody) {
         List<PostgreTableMeta> tables = postgreMetadataExtractionService.extractTablesMetadata(requestBody);
         return apiResponseMapper.success("0", tables);
+    }
+
+    /**
+     * 獲取 PostgreSQL 資料庫中的單一表格的 Metadata。
+     */
+    @PostMapping("/table/metadata")
+    public ApiResponse<PostgreTableMeta> getMetadataTable(
+            @RequestBody TableRequest requestBody) {
+        PostgreTableMeta table = postgreMetadataExtractionService.extractTableMetadata(requestBody);
+        return apiResponseMapper.success("0", table);
     }
 }

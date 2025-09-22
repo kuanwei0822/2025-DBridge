@@ -138,13 +138,16 @@
                 const rowsHtml = data.map(table => {
                     const escapedName = escapeHtml(table.tableName);
                     const remarks = table.remarks ? escapeHtml(table.remarks) : "—";
-                    const detailPageUrl = `/templates/dbPage/system/postgresql/detail?tableName=${encodeURIComponent(table.tableName)}`;
+
+                    // ✅ 修正後的 URL：同時傳入 schema 和 tableName
+                    const detailPageUrl = `/DBridge/view/postgresql/tableMetadata?schema=${encodeURIComponent(schema)}&tableName=${encodeURIComponent(table.tableName)}`;
+
                     return `
-                    <tr>
-                        <td><a href="${detailPageUrl}">${escapedName}</a></td>
-                        <td>${remarks}</td>
-                    </tr>
-                `;
+                <tr>
+                    <td><a href="${detailPageUrl}">${escapedName}</a></td>
+                    <td>${remarks}</td>
+                </tr>
+            `;
                 }).join('');
 
                 tableBody.innerHTML = rowsHtml;
@@ -183,6 +186,7 @@
                 const optionsHtml = schemas.map(schema => `<option value="${escapeHtml(schema)}">${escapeHtml(schema)}</option>`).join('');
                 selectElement.innerHTML = optionsHtml;
 
+                // 首次載入頁面時，使用預設選中的 schema
                 fetchAndRenderTables(selectElement.value);
             })
             .catch(error => {

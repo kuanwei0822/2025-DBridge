@@ -18,8 +18,15 @@ public class PostgreSqlController {
     /**
      * 顯示 PostgreSql Table 頁面
      */
-    @GetMapping("/table")
-    public String showTablePage() {
-        return "dbPage/system/postgresql/list";
+    @GetMapping("/tableList")
+    public String showTableListPage() {
+        return "dbPage/system/postgresql/tableList";
+    }
+    /**
+     * 顯示 PostgreSql Table 資料內容頁面
+     */
+    @GetMapping("/tableMetadata")
+    public String showTableMetadataPage() {
+        return "dbPage/system/postgresql/tableMetadata";
     }
 }
