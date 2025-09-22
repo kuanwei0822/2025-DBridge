@@ -22,12 +22,32 @@ public class PostgreMetadataExtractor {
 
     /**
      * 主方法 :
+     * 從資料庫連線中取得所有 Schema 的 List。
+     */
+    public List<String> extractSchemas(Connection connection) throws SQLException {
+        DatabaseMetaData metaData = connection.getMetaData();
+        List<String> schemas = new ArrayList<>();
+        try (ResultSet rs = metaData.getSchemas()) {
+            while (rs.next()) {
+                schemas.add(rs.getString("TABLE_SCHEM"));
+            }
+        }
+
+        // 包含所有系統 schemas 的列表
+        final List<String> systemSchemas = List.of("information_schema", "pg_catalog");
+
+        // 只保留使用者 schemas
+        schemas.removeAll(systemSchemas);
+        return schemas;
+    }
+
+    /**
+     * 主方法 :
      * 從資料庫連線中取得所有表格的 Metadata。
      */
-    public List<PostgreTableMeta> extractTablesMetadata(Connection connection) throws SQLException {
+    public List<PostgreTableMeta> extractTablesMetadata(Connection connection, String schema) throws SQLException {
         DatabaseMetaData metaData = connection.getMetaData();
         String catalog = connection.getCatalog();
-        String schema = connection.getSchema();
 
         List<String> tableNames = getTableNames(metaData, catalog, schema);
 
@@ -50,10 +70,9 @@ public class PostgreMetadataExtractor {
      * 主方法 :
      * 從資料庫連線中取得所有表格 List。
      */
-    public List<String> extractTables(Connection connection) throws SQLException {
+    public List<String> extractTables(Connection connection, String schema) throws SQLException {
         DatabaseMetaData metaData = connection.getMetaData();
         String catalog = connection.getCatalog();
-        String schema = connection.getSchema();
 
         return getTableNames(metaData, catalog, schema);
     }

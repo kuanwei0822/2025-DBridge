@@ -2,6 +2,7 @@ package com.project.service;
 
 import com.project.extractor.PostgreMetadataExtractor;
 import com.project.extractor.model.PostgreTableMeta;
+import com.project.model.request.SchemaRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,11 +26,24 @@ public class PostgreMetadataExtractionService {
     private final DataSource dataSource;
 
     /**
+     * 列出資料庫中所有 Schema List。
+     */
+    public List<String> extractSchemas() {
+        try (Connection conn = dataSource.getConnection()) {
+            return postgreMetadataExtractor.extractSchemas(conn);
+        } catch (SQLException ex) {
+            log.error("PostgreMetadataExtractionService extractSchemas 提取資料庫 Schema List 失敗: {}", ex.getMessage(), ex);
+            return Collections.emptyList();
+        }
+    }
+
+
+    /**
      * 列出資料庫中所有表格 List。
      */
-    public List<String> extractTables() {
+    public List<String> extractTables(SchemaRequest requestBody) {
         try (Connection conn = dataSource.getConnection()) {
-            return postgreMetadataExtractor.extractTables(conn);
+            return postgreMetadataExtractor.extractTables(conn, requestBody.getSchema());
         } catch (SQLException ex) {
             log.error("PostgreMetadataExtractionService extractTables 提取資料庫 Table List 失敗: {}", ex.getMessage(), ex);
             return Collections.emptyList();
@@ -39,9 +53,9 @@ public class PostgreMetadataExtractionService {
     /**
      * 取出資料庫中所有表格的 Metadata。
      */
-    public List<PostgreTableMeta> extractTablesMetadata() {
+    public List<PostgreTableMeta> extractTablesMetadata(SchemaRequest requestBody) {
         try (Connection conn = dataSource.getConnection()) {
-            return postgreMetadataExtractor.extractTablesMetadata(conn);
+            return postgreMetadataExtractor.extractTablesMetadata(conn, requestBody.getSchema());
         } catch (SQLException ex) {
             log.error("PostgreMetadataExtractionService extractTablesMetadata 提取資料庫 metadata 失敗: {}", ex.getMessage(), ex);
             return Collections.emptyList();
