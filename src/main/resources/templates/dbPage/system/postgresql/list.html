@@ -42,6 +42,32 @@
         a:hover {
             text-decoration: underline;
         }
+        .controls {
+            margin-bottom: 1em;
+        }
+        /* 新增的樣式 */
+        label {
+            font-weight: bold;
+            color: #333;
+            margin-right: 10px;
+        }
+        #schema-select {
+            padding: 8px 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+            color: #333;
+            cursor: pointer;
+        }
+        #schema-select:hover {
+            border-color: #a0a0a0;
+        }
+        #schema-select:focus {
+            outline: none;
+            border-color: #007BFF;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.25);
+        }
     </style>
 </head>
 
@@ -49,6 +75,11 @@
 
 <div class="container">
     <h1>資料表列表</h1>
+
+    <div class="controls">
+        <label for="schema-select">選擇 Schema:</label>
+        <select id="schema-select"></select>
+    </div>
 
     <table>
         <thead>
@@ -63,66 +94,118 @@
 </div>
 
 <script>
+    const API_BASE_URL = "http://localhost:8020/DBridge/api/postgresql";
+
     // 取得資料表列表並渲染到頁面
-    function fetchAndRenderTables() {
-        // 更新為新的 API URL
-        const apiUrl = "http://localhost:8020/DBridge/api/postgresql/tables/metadata";
+    function fetchAndRenderTables(schema) {
+        const apiUrl = `${API_BASE_URL}/tables/metadata`;
         const tableBody = document.getElementById("table-body");
 
-        // 顯示載入中訊息
         tableBody.innerHTML = '<tr><td colspan="2">載入中…</td></tr>';
 
-        // 使用 fetch API 呼叫後端
-        fetch(apiUrl)
+        if (!schema) {
+            tableBody.innerHTML = '<tr><td colspan="2">請選擇一個 Schema</td></tr>';
+            return;
+        }
+
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ schema: schema })
+        })
             .then(response => {
-                // 檢查 HTTP 狀態碼
                 if (!response.ok) {
                     throw new Error(`HTTP 錯誤! 狀態碼: ${response.status}`);
                 }
                 return response.json();
             })
-            .then(data => {
-                // 確保回傳的是陣列，避免錯誤
+            .then(apiResponse => {
+                if (apiResponse.code !== "0") {
+                    const errorMessage = apiResponse.message || "未知錯誤";
+                    tableBody.innerHTML = `<tr><td colspan="2">錯誤: ${errorMessage}</td></tr>`;
+                    return;
+                }
+
+                const data = apiResponse.data;
+
                 if (!Array.isArray(data) || data.length === 0) {
                     tableBody.innerHTML = '<tr><td colspan="2">無資料</td></tr>';
                     return;
                 }
 
-                // 將資料轉換成 HTML 字串，並插入到 tbody
                 const rowsHtml = data.map(table => {
-                    // 從物件中取得 tableName 和 remarks
                     const escapedName = escapeHtml(table.tableName);
-                    // 檢查 remarks 是否為空，如果為空則顯示「—」
                     const remarks = table.remarks ? escapeHtml(table.remarks) : "—";
                     const detailPageUrl = `/templates/dbPage/system/postgresql/detail?tableName=${encodeURIComponent(table.tableName)}`;
                     return `
-                        <tr>
-                            <td><a href="${detailPageUrl}">${escapedName}</a></td>
-                            <td>${remarks}</td>
-                        </tr>
-                    `;
+                    <tr>
+                        <td><a href="${detailPageUrl}">${escapedName}</a></td>
+                        <td>${remarks}</td>
+                    </tr>
+                `;
                 }).join('');
 
                 tableBody.innerHTML = rowsHtml;
             })
             .catch(error => {
-                // 處理連線或解析錯誤
                 console.error("載入資料失敗:", error);
                 tableBody.innerHTML = `<tr><td colspan="2">載入資料失敗</td></tr>`;
             });
     }
 
-    // 簡化的 HTML 編碼函數，防止 XSS 攻擊
+    // 取得 Schema 列表並填充下拉式選單
+    function fetchSchemasAndPopulateDropdown() {
+        const schemasUrl = `${API_BASE_URL}/schemas`;
+        const selectElement = document.getElementById("schema-select");
+
+        fetch(schemasUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        })
+            .then(response => response.json())
+            .then(apiResponse => {
+                if (apiResponse.code !== "0") {
+                    console.error("載入 Schema 列表失敗:", apiResponse.message);
+                    return;
+                }
+
+                const schemas = apiResponse.data;
+                if (!Array.isArray(schemas) || schemas.length === 0) {
+                    selectElement.innerHTML = '<option value="">無 Schema 可選</option>';
+                    return;
+                }
+
+                const optionsHtml = schemas.map(schema => `<option value="${escapeHtml(schema)}">${escapeHtml(schema)}</option>`).join('');
+                selectElement.innerHTML = optionsHtml;
+
+                fetchAndRenderTables(selectElement.value);
+            })
+            .catch(error => {
+                console.error("載入 Schema 列表失敗:", error);
+                selectElement.innerHTML = '<option value="">載入失敗</option>';
+            });
+    }
+
     function escapeHtml(s) {
-        // 如果傳入 null 或 undefined，則回傳空字串
         if (s === null || typeof s === 'undefined') return '';
         return String(s).replace(/[&<>"']/g, c => ({
             "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
         }[c]));
     }
 
-    // 當頁面內容完全載入後，執行函式
-    document.addEventListener("DOMContentLoaded", fetchAndRenderTables);
+    document.addEventListener("DOMContentLoaded", () => {
+        fetchSchemasAndPopulateDropdown();
+
+        const selectElement = document.getElementById("schema-select");
+        selectElement.addEventListener("change", (event) => {
+            fetchAndRenderTables(event.target.value);
+        });
+    });
 </script>
 
 </body>
