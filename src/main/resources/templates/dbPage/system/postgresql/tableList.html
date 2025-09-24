@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>資料表列表</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2em;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #333;
+            padding-bottom: 0.5em;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1em;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .controls {
+            margin-bottom: 1em;
+        }
+        /* 新增的樣式 */
+        label {
+            font-weight: bold;
+            color: #333;
+            margin-right: 10px;
+        }
+        #schema-select {
+            padding: 8px 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+            color: #333;
+            cursor: pointer;
+        }
+        #schema-select:hover {
+            border-color: #a0a0a0;
+        }
+        #schema-select:focus {
+            outline: none;
+            border-color: #007BFF;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.25);
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>資料表列表</h1>
+
+    <div class="controls">
+        <label for="schema-select">選擇 Schema:</label>
+        <select id="schema-select"></select>
+    </div>
+
+    <table>
+        <thead>
+        <tr>
+            <th>資料表名稱</th>
+            <th>描述</th>
+        </tr>
+        </thead>
+        <tbody id="table-body">
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const API_BASE_URL = "http://localhost:8020/DBridge/api/postgresql";
+
+    // 取得資料表列表並渲染到頁面
+    function fetchAndRenderTables(schema) {
+        const apiUrl = `${API_BASE_URL}/tables/metadata`;
+        const tableBody = document.getElementById("table-body");
+
+        tableBody.innerHTML = '<tr><td colspan="2">載入中…</td></tr>';
+
+        if (!schema) {
+            tableBody.innerHTML = '<tr><td colspan="2">請選擇一個 Schema</td></tr>';
+            return;
+        }
+
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ schema: schema })
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP 錯誤! 狀態碼: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(apiResponse => {
+                if (apiResponse.code !== "0") {
+                    const errorMessage = apiResponse.message || "未知錯誤";
+                    tableBody.innerHTML = `<tr><td colspan="2">錯誤: ${errorMessage}</td></tr>`;
+                    return;
+                }
+
+                const data = apiResponse.data;
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="2">無資料</td></tr>';
+                    return;
+                }
+
+                const rowsHtml = data.map(table => {
+                    const escapedName = escapeHtml(table.tableName);
+                    const remarks = table.remarks ? escapeHtml(table.remarks) : "—";
+
+                    // ✅ 修正後的 URL：同時傳入 schema 和 tableName
+                    const detailPageUrl = `/DBridge/view/postgresql/tableMetadata?schema=${encodeURIComponent(schema)}&tableName=${encodeURIComponent(table.tableName)}`;
+
+                    return `
+                <tr>
+                    <td><a href="${detailPageUrl}">${escapedName}</a></td>
+                    <td>${remarks}</td>
+                </tr>
+            `;
+                }).join('');
+
+                tableBody.innerHTML = rowsHtml;
+            })
+            .catch(error => {
+                console.error("載入資料失敗:", error);
+                tableBody.innerHTML = `<tr><td colspan="2">載入資料失敗</td></tr>`;
+            });
+    }
+
+    // 取得 Schema 列表並填充下拉式選單
+    function fetchSchemasAndPopulateDropdown() {
+        const schemasUrl = `${API_BASE_URL}/schemas`;
+        const selectElement = document.getElementById("schema-select");
+
+        fetch(schemasUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        })
+            .then(response => response.json())
+            .then(apiResponse => {
+                if (apiResponse.code !== "0") {
+                    console.error("載入 Schema 列表失敗:", apiResponse.message);
+                    return;
+                }
+
+                const schemas = apiResponse.data;
+                if (!Array.isArray(schemas) || schemas.length === 0) {
+                    selectElement.innerHTML = '<option value="">無 Schema 可選</option>';
+                    return;
+                }
+
+                const optionsHtml = schemas.map(schema => `<option value="${escapeHtml(schema)}">${escapeHtml(schema)}</option>`).join('');
+                selectElement.innerHTML = optionsHtml;
+
+                // 首次載入頁面時，使用預設選中的 schema
+                fetchAndRenderTables(selectElement.value);
+            })
+            .catch(error => {
+                console.error("載入 Schema 列表失敗:", error);
+                selectElement.innerHTML = '<option value="">載入失敗</option>';
+            });
+    }
+
+    function escapeHtml(s) {
+        if (s === null || typeof s === 'undefined') return '';
+        return String(s).replace(/[&<>"']/g, c => ({
+            "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        }[c]));
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        fetchSchemasAndPopulateDropdown();
+
+        const selectElement = document.getElementById("schema-select");
+        selectElement.addEventListener("change", (event) => {
+            fetchAndRenderTables(event.target.value);
+        });
+    });
+</script>
+
+</body>
+</html>

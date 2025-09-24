@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title id="page-title">資料表詳情</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 2em;
+      line-height: 1.6;
+    }
+    h1, h2, h3 {
+      color: #333;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .section-header {
+      border-bottom: 2px solid #333;
+      padding-bottom: 0.5em;
+      margin-top: 2em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1em;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+      font-weight: bold;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 2em;
+      padding: 10px 15px;
+      background-color: #007BFF;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+    }
+    .back-link:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1 id="table-title">資料表詳情</h1>
+
+  <div id="loading-message">
+    <p>載入中...</p>
+  </div>
+
+  <div id="content" style="display: none;">
+    <h3 class="section-header">資料表描述</h3>
+    <p id="table-remarks"></p>
+
+    <h3 class="section-header">欄位（Columns）</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>名稱</th>
+        <th>型別</th>
+        <th>大小</th>
+        <th>可否為空</th>
+        <th>預設值</th>
+        <th>主鍵</th>
+      </tr>
+      </thead>
+      <tbody id="columns-body"></tbody>
+    </table>
+
+    <h3 class="section-header">約束（Constraints）</h3>
+    <ul id="constraints-list"></ul>
+
+    <a href="/DBridge/view/postgresql/tableList" class="back-link">← 返回資料表列表</a>
+    <a href="#" id="view-data-link" class="back-link">🔍 檢視資料（限制 5000 筆）</a>
+  </div>
+</div>
+
+<script>
+  const API_BASE_URL = "http://localhost:8020/DBridge/api/postgresql";
+
+  // 取得 URL 參數
+  const urlParams = new URLSearchParams(window.location.search);
+  const tableName = urlParams.get('tableName');
+  const tableSchema = urlParams.get('schema'); // 假設你也從 URL 傳遞 schema
+
+  // 檢查 URL 參數
+  if (!tableName || !tableSchema) {
+    document.getElementById("loading-message").innerHTML = "<p>錯誤：缺少資料表或 Schema 名稱。</p>";
+    throw new Error("Missing tableName or schema parameter.");
+  }
+
+  // 載入資料表 Metadata
+  function fetchTableMetadata() {
+    const apiUrl = `${API_BASE_URL}/table/metadata`;
+
+    fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ schema: tableSchema, tableName: tableName })
+    })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP 錯誤! 狀態碼: ${response.status}`);
+              }
+              return response.json();
+            })
+            .then(apiResponse => {
+              if (apiResponse.code !== "0") {
+                const errorMessage = apiResponse.message || "載入資料失敗";
+                document.getElementById("loading-message").innerHTML = `<p>錯誤: ${errorMessage}</p>`;
+                return;
+              }
+
+              const data = apiResponse.data;
+              if (!data) {
+                document.getElementById("loading-message").innerHTML = `<p>找不到資料表 ${tableName} 的詳細資訊。</p>`;
+                return;
+              }
+
+              // 隱藏載入訊息，顯示內容
+              document.getElementById("loading-message").style.display = 'none';
+              document.getElementById("content").style.display = 'block';
+
+              // 填充基本資訊
+              document.getElementById("page-title").textContent = `資料表詳情：${data.tableName}`;
+              document.getElementById("table-title").textContent = `資料表詳情：${data.tableName}`;
+              document.getElementById("table-remarks").textContent = data.remarks || "無描述";
+
+              // 填充欄位表格
+              const columnsBody = document.getElementById("columns-body");
+              if (Array.isArray(data.columns) && data.columns.length > 0) {
+                const columnsHtml = data.columns.map(col => `
+                    <tr>
+                        <td>${escapeHtml(col.columnName)}</td>
+                        <td>${escapeHtml(col.dataType)}</td>
+                        <td>${col.columnSize || "—"}</td>
+                        <td>${col.nullable.displayName || "—"}</td>
+                        <td>${col.defaultValue || "—"}</td>
+                        <td>${col.primaryKey ? '✔' : ''}</td>
+                    </tr>
+                `).join('');
+                columnsBody.innerHTML = columnsHtml;
+              } else {
+                columnsBody.innerHTML = '<tr><td colspan="6">無欄位資訊</td></tr>';
+              }
+
+              // 填充約束列表
+              const constraintsList = document.getElementById("constraints-list");
+              if (Array.isArray(data.constraints) && data.constraints.length > 0) {
+                const constraintsHtml = data.constraints.map(c => `
+                    <li>[${c.constraintType.displayName}] ${c.constraintName} - ${c.checkClause || "—"}</li>
+                `).join('');
+                constraintsList.innerHTML = constraintsHtml;
+              } else {
+                constraintsList.innerHTML = '<li>無任何約束</li>';
+              }
+
+              // 更新 "檢視資料" 連結
+              const viewDataLink = document.getElementById("view-data-link");
+              viewDataLink.href = `/DBridge/view/postgresql/tableData?tableName=${encodeURIComponent(data.tableName)}&schema=${encodeURIComponent(data.schema)}`;
+
+            })
+            .catch(error => {
+              console.error("載入資料失敗:", error);
+              document.getElementById("loading-message").innerHTML = `<p>載入資料失敗</p>`;
+            });
+  }
+
+  // 簡化的 HTML 編碼函數
+  function escapeHtml(s) {
+    if (s === null || typeof s === 'undefined') return '';
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  document.addEventListener("DOMContentLoaded", fetchTableMetadata);
+</script>
+</body>
+</html>
