@@ -22,11 +22,20 @@ public class PostgreSqlController {
     public String showTableListPage() {
         return "dbPage/system/postgresql/tableList";
     }
+
     /**
-     * 顯示 PostgreSql Table 資料內容頁面
+     * 顯示 PostgreSql Table Metadata 頁面
      */
     @GetMapping("/tableMetadata")
     public String showTableMetadataPage() {
         return "dbPage/system/postgresql/tableMetadata";
+    }
+
+    /**
+     * 顯示 PostgreSql SQL 執行頁面
+     */
+    @GetMapping("/sqlExecute")
+    public String sqlExecutePage() {
+        return "dbPage/system/postgresql/sqlExecute.html";
     }
 }
