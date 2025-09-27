@@ -93,7 +93,7 @@
   // 取得 URL 參數
   const urlParams = new URLSearchParams(window.location.search);
   const tableName = urlParams.get('tableName');
-  const tableSchema = urlParams.get('schema'); // 假設你也從 URL 傳遞 schema
+  const tableSchema = urlParams.get('schema'); // 確保正確取得 schema 參數
 
   // 檢查 URL 參數
   if (!tableName || !tableSchema) {
@@ -144,15 +144,15 @@
               const columnsBody = document.getElementById("columns-body");
               if (Array.isArray(data.columns) && data.columns.length > 0) {
                 const columnsHtml = data.columns.map(col => `
-                    <tr>
-                        <td>${escapeHtml(col.columnName)}</td>
-                        <td>${escapeHtml(col.dataType)}</td>
-                        <td>${col.columnSize || "—"}</td>
-                        <td>${col.nullable.displayName || "—"}</td>
-                        <td>${col.defaultValue || "—"}</td>
-                        <td>${col.primaryKey ? '✔' : ''}</td>
-                    </tr>
-                `).join('');
+                        <tr>
+                            <td>${escapeHtml(col.columnName)}</td>
+                            <td>${escapeHtml(col.dataType)}</td>
+                            <td>${col.columnSize || "—"}</td>
+                            <td>${col.nullable.displayName || "—"}</td>
+                            <td>${col.defaultValue || "—"}</td>
+                            <td>${col.primaryKey ? '✔' : ''}</td>
+                        </tr>
+                    `).join('');
                 columnsBody.innerHTML = columnsHtml;
               } else {
                 columnsBody.innerHTML = '<tr><td colspan="6">無欄位資訊</td></tr>';
@@ -162,17 +162,23 @@
               const constraintsList = document.getElementById("constraints-list");
               if (Array.isArray(data.constraints) && data.constraints.length > 0) {
                 const constraintsHtml = data.constraints.map(c => `
-                    <li>[${c.constraintType.displayName}] ${c.constraintName} - ${c.checkClause || "—"}</li>
-                `).join('');
+                        <li>[${c.constraintType.displayName}] ${c.constraintName} - ${c.checkClause || "—"}</li>
+                    `).join('');
                 constraintsList.innerHTML = constraintsHtml;
               } else {
                 constraintsList.innerHTML = '<li>無任何約束</li>';
               }
 
-              // 更新 "檢視資料" 連結
+              // 取得連結元素
               const viewDataLink = document.getElementById("view-data-link");
-              viewDataLink.href = `/DBridge/view/postgresql/tableData?tableName=${encodeURIComponent(data.tableName)}&schema=${encodeURIComponent(data.schema)}`;
+              const backLink = document.querySelector(".back-link"); // 取得「返回資料表列表」連結
 
+              // 更新 "檢視資料" 連結 (原有的邏輯，保持不動)
+              viewDataLink.href = `/DBridge/view/postgresql/tableData?tableName=${encodeURIComponent(data.tableName)}&schema=${encodeURIComponent(tableSchema)}`;
+
+              // ✅ 核心修改：更新「返回資料表列表」連結
+              // 從 URL 取得的 tableSchema 已經是正確的值
+              backLink.href = `/DBridge/view/postgresql/tableList?schema=${encodeURIComponent(tableSchema)}`;
             })
             .catch(error => {
               console.error("載入資料失敗:", error);

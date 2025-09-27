@@ -96,7 +96,7 @@
 <script>
     const API_BASE_URL = "http://localhost:8020/DBridge/api/postgresql";
 
-    // 取得資料表列表並渲染到頁面
+    // 取得資料表列表並渲染到頁面 (此函數邏輯保持不變)
     function fetchAndRenderTables(schema) {
         const apiUrl = `${API_BASE_URL}/tables/metadata`;
         const tableBody = document.getElementById("table-body");
@@ -139,15 +139,15 @@
                     const escapedName = escapeHtml(table.tableName);
                     const remarks = table.remarks ? escapeHtml(table.remarks) : "—";
 
-                    // ✅ 修正後的 URL：同時傳入 schema 和 tableName
+                    // URL 必須使用當前選中的 schema 變數
                     const detailPageUrl = `/DBridge/view/postgresql/tableMetadata?schema=${encodeURIComponent(schema)}&tableName=${encodeURIComponent(table.tableName)}`;
 
                     return `
-                <tr>
-                    <td><a href="${detailPageUrl}">${escapedName}</a></td>
-                    <td>${remarks}</td>
-                </tr>
-            `;
+                        <tr>
+                            <td><a href="${detailPageUrl}">${escapedName}</a></td>
+                            <td>${remarks}</td>
+                        </tr>
+                    `;
                 }).join('');
 
                 tableBody.innerHTML = rowsHtml;
@@ -159,9 +159,11 @@
     }
 
     // 取得 Schema 列表並填充下拉式選單
-    function fetchSchemasAndPopulateDropdown() {
+    // ✅ 核心變動：接受一個 defaultSchemaName 參數，用於預選
+    function fetchSchemasAndPopulateDropdown(defaultSchemaName) {
         const schemasUrl = `${API_BASE_URL}/schemas`;
         const selectElement = document.getElementById("schema-select");
+        let initialSchemaToLoad = null;
 
         fetch(schemasUrl, {
             method: 'POST',
@@ -174,6 +176,7 @@
             .then(apiResponse => {
                 if (apiResponse.code !== "0") {
                     console.error("載入 Schema 列表失敗:", apiResponse.message);
+                    selectElement.innerHTML = '<option value="">載入失敗</option>';
                     return;
                 }
 
@@ -183,11 +186,30 @@
                     return;
                 }
 
-                const optionsHtml = schemas.map(schema => `<option value="${escapeHtml(schema)}">${escapeHtml(schema)}</option>`).join('');
+                // 1. 根據 API 回傳的 Schema 列表建立 Option
+                const optionsHtml = schemas.map(schema => {
+                    const escapedSchema = escapeHtml(schema);
+                    let selectedAttr = '';
+
+                    // 2. 檢查是否與 URL 傳入的預設 Schema 相符
+                    if (defaultSchemaName && schema === defaultSchemaName) {
+                        selectedAttr = ' selected';
+                        initialSchemaToLoad = schema; // 記住要載入的 Schema
+                    }
+
+                    return `<option value="${escapedSchema}"${selectedAttr}>${escapedSchema}</option>`;
+                }).join('');
+
                 selectElement.innerHTML = optionsHtml;
 
-                // 首次載入頁面時，使用預設選中的 schema
-                fetchAndRenderTables(selectElement.value);
+                // 3. 確定最終要載入的 Schema：
+                //    - 如果 URL 有傳，就載入 URL 傳入的 (initialSchemaToLoad)
+                //    - 如果 URL 沒傳，就載入列表中的第一個 (selectElement.value)
+                const schemaToLoad = initialSchemaToLoad || selectElement.value;
+
+                // 4. 首次載入頁面時，使用確定的 schema
+                fetchAndRenderTables(schemaToLoad);
+
             })
             .catch(error => {
                 console.error("載入 Schema 列表失敗:", error);
@@ -197,17 +219,37 @@
 
     function escapeHtml(s) {
         if (s === null || typeof s === 'undefined') return '';
+
         return String(s).replace(/[&<>"']/g, c => ({
             "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
         }[c]));
     }
 
+    // ✅ 核心啟動邏輯：完全由前端 JavaScript 負責讀取 URL 參數
     document.addEventListener("DOMContentLoaded", () => {
-        fetchSchemasAndPopulateDropdown();
+        // 使用 URLSearchParams 原生物件讀取 URL 參數
+        const urlParams = new URLSearchParams(window.location.search);
 
+        // 取得 URL 中名為 'schema' 的參數值 (例如: ?schema=public)
+        const initialSchema = urlParams.get('schema');
+
+        // 1. 載入 Schema 列表，並傳入從 URL 讀取的參數進行預選
+        //    如果 URL 沒有參數，則傳入 null
+        fetchSchemasAndPopulateDropdown(initialSchema);
+
+        // 2. 設置下拉選單的變動事件
         const selectElement = document.getElementById("schema-select");
         selectElement.addEventListener("change", (event) => {
+            // 當使用者切換 Schema 時，更新表格
             fetchAndRenderTables(event.target.value);
+
+            // 💡 UX 建議：同時更新瀏覽器的 URL，這樣使用者才能將當前頁面加入書籤
+            if (event.target.value) {
+                const newUrl = `${window.location.pathname}?schema=${encodeURIComponent(event.target.value)}`;
+                window.history.pushState({ path: newUrl }, '', newUrl);
+            } else {
+                window.history.pushState({ path: window.location.pathname }, '', window.location.pathname);
+            }
         });
     });
 </script>
