@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class PostgreSqlController {
 
     /**
-     * 顯示 PostgreSql Table 頁面
+     * 顯示 PostgreSql All Table List 頁面
      */
     @GetMapping("/tableList")
     public String showTableListPage() {
@@ -24,11 +24,19 @@ public class PostgreSqlController {
     }
 
     /**
-     * 顯示 PostgreSql Table Metadata 頁面
+     * 顯示 PostgreSql 單一 Table Metadata 頁面
      */
     @GetMapping("/tableMetadata")
     public String showTableMetadataPage() {
         return "dbPage/system/postgresql/tableMetadata";
+    }
+
+    /**
+     * 顯示 PostgreSql 單一 Table Data 頁面
+     */
+    @GetMapping("/tableData")
+    public String showTableDataPage() {
+        return "dbPage/system/postgresql/tableData";
     }
 
     /**
