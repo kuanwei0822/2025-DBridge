@@ -1,10 +1,13 @@
 package com.project.api.rest;
 
 import com.project.extractor.model.PostgreTableMeta;
+import com.project.model.request.ExecuteSqlRequest;
 import com.project.model.request.SchemaRequest;
 import com.project.model.request.TableRequest;
 import com.project.model.response.ApiResponse;
 import com.project.model.response.ApiResponseMapper;
+import com.project.model.response.SqlExecuteResult;
+import com.project.service.PostgreExecuteSqlService;
 import com.project.service.PostgreMetadataExtractionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,6 +26,7 @@ import java.util.List;
 public class PostgreSqlRestController {
 
     private final PostgreMetadataExtractionService postgreMetadataExtractionService;
+    private final PostgreExecuteSqlService postgreExecuteSqlService;
     private final ApiResponseMapper apiResponseMapper;
     /**
      * 獲取 PostgreSQL 資料庫中的所有 Schema。
@@ -61,5 +65,15 @@ public class PostgreSqlRestController {
             @RequestBody TableRequest requestBody) {
         PostgreTableMeta table = postgreMetadataExtractionService.extractTableMetadata(requestBody);
         return apiResponseMapper.success("0", table);
+    }
+
+    /**
+     * 執行自訂 PostgreSql SQL
+     */
+    @PostMapping("/sqlExecute")
+    public ApiResponse<SqlExecuteResult> sqlExecute(
+            @RequestBody ExecuteSqlRequest requestBody) {
+        SqlExecuteResult result = postgreExecuteSqlService.executeSql(requestBody);
+        return apiResponseMapper.success("0", result);
     }
 }

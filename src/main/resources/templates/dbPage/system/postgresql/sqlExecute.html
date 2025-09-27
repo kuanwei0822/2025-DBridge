@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>執行自訂 SQL</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2em;
+            line-height: 1.6;
+            background-color: #f4f7f6; /* 與背景圖相似的淺灰 */
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #4b6cb7;
+            border-bottom: 2px solid #4b6cb7;
+            padding-bottom: 0.5em;
+            text-align: center;
+            margin-bottom: 1.5em;
+        }
+        /* 新增的 Schema 選擇樣式 */
+        .controls {
+            margin-bottom: 1em;
+            display: flex;
+            align-items: center;
+            /* 讓控制項之間有間隔 */
+            gap: 15px;
+            flex-wrap: wrap; /* 防止內容過多時溢出 */
+        }
+        label {
+            font-weight: bold;
+            color: #333;
+            /* 移除多餘的 margin-right */
+        }
+        #schema-select, #page-size-select { /* 共同樣式 */
+            padding: 8px 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+            color: #333;
+            cursor: pointer;
+        }
+        #schema-select:focus, #page-size-select:focus {
+            outline: none;
+            border-color: #007BFF;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.25);
+        }
+        /* SQL 編輯器區塊 */
+        .sql-editor-container {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        #sql-textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 10px;
+            box-sizing: border-box;
+            border: none;
+            resize: vertical;
+            font-family: monospace;
+            font-size: 14px;
+            outline: none;
+            background-color: #f9f9f9;
+        }
+        /* 執行按鈕 */
+        #execute-btn {
+            background-color: #4b6cb7;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: block;
+            width: 100%;
+        }
+        #execute-btn:hover {
+            background-color: #3f5a9e;
+        }
+
+        /* 查詢結果區塊 */
+        .results-container {
+            margin-top: 30px;
+        }
+        h2 {
+            color: #333;
+            font-size: 1.5em;
+            border-bottom: 1px dashed #ccc;
+            padding-bottom: 5px;
+        }
+        .message-box {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            word-break: break-all;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* 結果表格樣式 */
+        #results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.9em;
+        }
+        #results-table th, #results-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            word-break: break-all;
+        }
+        #results-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        #results-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* 分頁樣式 */
+        .pagination button {
+            padding: 8px 12px;
+            margin: 0 5px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .pagination button:hover:not(:disabled) {
+            background-color: #e0e0e0;
+        }
+        .pagination button.active {
+            background-color: #4b6cb7;
+            color: white;
+            border-color: #4b6cb7;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>執行自訂 SQL</h1>
+
+    <div class="controls">
+        <label for="schema-select">選擇 Search Path (Schema):</label>
+        <select id="schema-select"></select>
+        <span id="loading-schemas-message" style="color: #666;">載入 Schema...</span>
+
+        <label for="page-size-select">每頁顯示:</label>
+        <select id="page-size-select">
+            <option value="10">10 筆</option>
+            <option value="25">25 筆</option>
+            <option value="50" selected>50 筆</option>
+            <option value="100">100 筆</option>
+            <option value="200">200 筆</option>
+            <option value="500">500 筆</option>
+        </select>
+    </div>
+
+    <div class="sql-editor-container">
+        <textarea id="sql-textarea" placeholder="請在此輸入您的 SQL 語句 (例如: SELECT * FROM users LIMIT 10)。未指定 Schema 的資料表將以選中的 Search Path 為準。"></textarea>
+    </div>
+    <button id="execute-btn">執行 SQL</button>
+
+    <div class="results-container">
+        <h2>查詢結果與訊息</h2>
+        <div id="message-area" class="message-box">
+            請選擇 Search Path 並點擊「執行 SQL」。
+        </div>
+
+        <table id="results-table" style="display: none;">
+            <thead>
+            <tr id="results-header"></tr>
+            </thead>
+            <tbody id="results-body"></tbody>
+        </table>
+
+        <div id="pagination-controls" class="pagination" style="margin-top: 15px; text-align: center;">
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const API_BASE_URL = "http://localhost:8020/DBridge/api/postgresql";
+    const SQL_EXECUTE_URL = `${API_BASE_URL}/sqlExecute`;
+    const SCHEMAS_URL = `${API_BASE_URL}/schemas`;
+
+    const sqlTextarea = document.getElementById("sql-textarea");
+    const executeBtn = document.getElementById("execute-btn");
+    const messageArea = document.getElementById("message-area");
+    const resultsTable = document.getElementById("results-table");
+    const resultsHeader = document.getElementById("results-header");
+    const resultsBody = document.getElementById("results-body");
+    const selectElement = document.getElementById("schema-select");
+    const loadingMessage = document.getElementById("loading-schemas-message");
+    const paginationControls = document.getElementById("pagination-controls");
+    const pageSizeSelect = document.getElementById("page-size-select"); // ✅ 新增 Page Size Select 元素
+
+    // ✅ 動態讀取初始的每頁筆數
+    let ROWS_PER_PAGE = parseInt(pageSizeSelect.value, 10);
+    let allResults = [];
+    let currentPage = 1;
+
+    // 輔助函數：顯示訊息
+    function displayMessage(message, type = 'info') {
+        messageArea.textContent = message;
+        messageArea.className = `message-box ${type === 'success' ? 'success' : type === 'error' ? 'error' : ''}`;
+        resultsTable.style.display = 'none';
+        resultsHeader.innerHTML = '';
+        resultsBody.innerHTML = '';
+        paginationControls.innerHTML = ''; // 清空分頁控制項
+    }
+
+    // 輔助函數：HTML 編碼
+    function escapeHtml(s) {
+        if (s === null || typeof s === 'undefined') return '';
+        return String(s).replace(/[&<>"']/g, c => ({
+            "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        }[c]));
+    }
+
+    // 渲染當前頁面的表格資料
+    function renderTablePage(page) {
+        currentPage = page;
+        const startIndex = (page - 1) * ROWS_PER_PAGE;
+        const endIndex = startIndex + ROWS_PER_PAGE;
+        const pageRows = allResults.slice(startIndex, endIndex);
+
+        const columns = allResults.length > 0 ? Object.keys(allResults[0]) : [];
+
+        // 渲染 Table Body
+        const rowsHtml = pageRows.map(row => {
+            const cellHtml = columns.map(col => `<td>${escapeHtml(row[col])}</td>`).join('');
+            return `<tr>${cellHtml}</tr>`;
+        }).join('');
+        resultsBody.innerHTML = rowsHtml;
+
+        // 渲染分頁控制項
+        renderPaginationControls();
+    }
+
+    // 渲染分頁控制按鈕
+    function renderPaginationControls() {
+        const totalRows = allResults.length;
+        const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE); // ✅ 使用動態 ROWS_PER_PAGE
+
+        if (totalPages <= 1) {
+            paginationControls.innerHTML = '';
+            return;
+        }
+
+        let controlsHtml = '';
+
+        // 上一頁按鈕
+        controlsHtml += `<button id="prev-btn" ${currentPage === 1 ? 'disabled' : ''}>← 上一頁</button>`;
+
+        // 頁碼按鈕 (只顯示當前頁附近最多 5 個頁碼，並確保顯示首頁和末頁)
+        const maxButtons = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+        if (endPage - startPage + 1 < maxButtons) {
+            startPage = Math.max(1, endPage - maxButtons + 1);
+        }
+
+        const pageNumbersToShow = new Set();
+        pageNumbersToShow.add(1);
+        for (let i = startPage; i <= endPage; i++) {
+            pageNumbersToShow.add(i);
+        }
+        pageNumbersToShow.add(totalPages);
+
+        const sortedPages = Array.from(pageNumbersToShow).sort((a, b) => a - b);
+        let lastPage = 0;
+
+        sortedPages.forEach(i => {
+            if (i - lastPage > 1) {
+                controlsHtml += `<span style="margin: 0 5px;">...</span>`;
+            }
+            const activeClass = i === currentPage ? 'active' : '';
+            controlsHtml += `<button class="${activeClass}" onclick="renderTablePage(${i})">${i}</button>`;
+            lastPage = i;
+        });
+
+        // 下一頁按鈕
+        controlsHtml += `<button id="next-btn" ${currentPage === totalPages ? 'disabled' : ''}>下一頁 →</button>`;
+
+        paginationControls.innerHTML = controlsHtml;
+
+        // 綁定上下頁按鈕事件
+        document.getElementById('prev-btn').onclick = () => {
+            if (currentPage > 1) renderTablePage(currentPage - 1);
+        };
+        document.getElementById('next-btn').onclick = () => {
+            if (currentPage < totalPages) renderTablePage(currentPage + 1);
+        };
+    }
+
+
+    // 取得 Schema 列表並填充下拉式選單
+    function fetchSchemasAndPopulateDropdown(defaultSchemaName) {
+        loadingMessage.style.display = 'inline';
+
+        fetch(SCHEMAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        })
+            .then(response => response.json())
+            .then(apiResponse => {
+                loadingMessage.style.display = 'none';
+                if (apiResponse.code !== "0") {
+                    console.error("載入 Schema 列表失敗:", apiResponse.message);
+                    selectElement.innerHTML = '<option value="">載入失敗</option>';
+                    displayMessage("載入 Schema 列表失敗，請檢查 API 連線。", 'error');
+                    return;
+                }
+
+                const schemas = apiResponse.data;
+                if (!Array.isArray(schemas) || schemas.length === 0) {
+                    selectElement.innerHTML = '<option value="">無 Schema 可選</option>';
+                    displayMessage("API 未回傳任何可用的 Schema。", 'error');
+                    return;
+                }
+
+                let schemaToSelect = null;
+
+                const optionsHtml = schemas.map((schema, index) => {
+                    const escapedSchema = escapeHtml(schema);
+                    let selectedAttr = '';
+
+                    // 1. 檢查是否與 URL 傳入的預設 Schema 相符
+                    if (defaultSchemaName && schema === defaultSchemaName) {
+                        selectedAttr = ' selected';
+                        schemaToSelect = schema;
+                    }
+                    // 2. 如果 URL 參數不符合或不存在，則選取第一個 (index === 0)
+                    else if (!schemaToSelect && index === 0) {
+                        schemaToSelect = schema;
+                        selectedAttr = ' selected';
+                    }
+
+                    return `<option value="${escapedSchema}"${selectedAttr}>${escapedSchema}</option>`;
+                }).join('');
+
+                selectElement.innerHTML = optionsHtml;
+
+                if (schemaToSelect) {
+                    displayMessage(`已選中 Search Path: ${schemaToSelect}。請輸入 SQL 語句。`);
+                } else {
+                    displayMessage("請選擇一個 Search Path (Schema)。", 'error');
+                }
+            })
+            .catch(error => {
+                loadingMessage.style.display = 'none';
+                console.error("載入 Schema 列表失敗:", error);
+                selectElement.innerHTML = '<option value="">載入失敗</option>';
+                displayMessage("無法連線到 Schema 列表 API。", 'error');
+            });
+    }
+
+
+    // 主邏輯：執行 SQL 查詢 (已更新分頁邏輯)
+    async function executeSql() {
+        const sqlStatement = sqlTextarea.value.trim();
+        const currentSchema = selectElement.value;
+
+        if (!currentSchema || !sqlStatement) {
+            displayMessage(`請先${!currentSchema ? '選擇 Search Path' : '輸入 SQL 語句'}。`, 'error');
+            return;
+        }
+
+        executeBtn.disabled = true;
+        displayMessage("執行中...", 'info');
+
+        try {
+            const response = await fetch(SQL_EXECUTE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ schema: currentSchema, sqlStatement: sqlStatement })
+            });
+
+            const apiResponse = await response.json();
+
+            if (apiResponse.code !== "0") {
+                const errorMessage = apiResponse.data && apiResponse.data.message
+                    ? apiResponse.data.message
+                    : apiResponse.message || "執行失敗，請檢查 SQL 語法或連線。";
+                throw new Error(errorMessage);
+            }
+
+            const data = apiResponse.data;
+
+            if (!data) {
+                displayMessage(apiResponse.message || "操作成功，但 API 回傳數據結構錯誤。", 'error');
+                return;
+            }
+
+            if (data.type === 'UPDATE_COUNT') {
+                displayMessage(`執行成功：影響 ${data.count || 0} 筆資料。`, 'success');
+
+            } else if (data.type === 'SELECT_RESULT' && Array.isArray(data.rows)) {
+
+                // 1. 儲存完整結果集
+                allResults = data.rows;
+
+                if (allResults.length === 0) {
+                    displayMessage("查詢成功，但無資料。", 'success');
+                    return;
+                }
+
+                // 2. 渲染表頭 (只需渲染一次)
+                const columns = Object.keys(allResults[0]);
+                resultsHeader.innerHTML = columns.map(col => `<th>${escapeHtml(col)}</th>`).join('');
+
+                // 3. 渲染第一頁並初始化分頁控制
+                renderTablePage(1);
+                resultsTable.style.display = 'table';
+
+                // 4. 更新訊息區
+                messageArea.textContent = `查詢成功：共 ${allResults.length} 筆結果。每頁顯示 ${ROWS_PER_PAGE} 筆。`; // ✅ 顯示動態 Page Size
+                messageArea.className = 'message-box success';
+
+            } else {
+                displayMessage(data.message || apiResponse.message || "操作成功，但 API 回傳格式不符預期。", 'info');
+            }
+
+        } catch (error) {
+            console.error("SQL 執行失敗:", error);
+            displayMessage(`SQL 執行失敗: ${error.message || '連線錯誤'}`, 'error');
+        } finally {
+            executeBtn.disabled = false;
+        }
+    }
+
+    // 核心啟動邏輯
+    document.addEventListener("DOMContentLoaded", () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialSchema = urlParams.get('schema');
+
+        fetchSchemasAndPopulateDropdown(initialSchema);
+
+        // 2. 設置 Schema 下拉選單的變動事件
+        selectElement.addEventListener("change", (event) => {
+            const newSchema = event.target.value;
+            const newUrl = `${window.location.pathname}?schema=${encodeURIComponent(newSchema)}`;
+            window.history.pushState({ path: newUrl }, '', newUrl);
+
+            displayMessage(`已切換 Search Path 為: ${newSchema}。請執行 SQL 語句。`);
+        });
+
+        // 5. ✅ 綁定每頁筆數變動事件
+        pageSizeSelect.addEventListener("change", (event) => {
+            ROWS_PER_PAGE = parseInt(event.target.value, 10);
+
+            // 如果目前有查詢結果，則重新渲染表格和分頁，並回到第一頁
+            if (allResults.length > 0) {
+                renderTablePage(1);
+                messageArea.textContent = `查詢成功：共 ${allResults.length} 筆結果。每頁顯示 ${ROWS_PER_PAGE} 筆。`; // ✅ 更新訊息
+                messageArea.className = 'message-box success';
+            } else {
+                // 僅更新顯示訊息 (如果沒有結果)
+                displayMessage(`已設定每頁顯示 ${ROWS_PER_PAGE} 筆。請執行 SQL 語句。`);
+            }
+        });
+
+        executeBtn.addEventListener("click", executeSql);
+
+        sqlTextarea.addEventListener('keydown', (event) => {
+            if (event.ctrlKey && event.key === 'Enter') {
+                event.preventDefault();
+                executeSql();
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

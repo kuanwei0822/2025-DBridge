@@ -38,18 +38,31 @@
     tr:nth-child(even) {
       background-color: #f9f9f9;
     }
-    .back-link {
+    /* 統一連結樣式 */
+    .action-link {
       display: inline-block;
       margin-top: 2em;
       padding: 10px 15px;
-      background-color: #007BFF;
       color: white;
       text-decoration: none;
       border-radius: 5px;
+      margin-right: 10px; /* 增加間隔 */
     }
-    .back-link:hover {
-      background-color: #0056b3;
+    .action-link:hover {
+      opacity: 0.9;
     }
+
+    /* 針對三個連結設定不同顏色 */
+    #back-to-list-link {
+      background-color: #007BFF;
+    }
+    #execute-sql-link {
+      background-color: #28a745; /* 綠色 */
+    }
+    #view-data-link {
+      background-color: #6c757d; /* 灰色 */
+    }
+
   </style>
 </head>
 <body>
@@ -82,18 +95,22 @@
     <h3 class="section-header">約束（Constraints）</h3>
     <ul id="constraints-list"></ul>
 
-    <a href="/DBridge/view/postgresql/tableList" class="back-link">← 返回資料表列表</a>
-    <a href="#" id="view-data-link" class="back-link">🔍 檢視資料（限制 5000 筆）</a>
+    <a href="/DBridge/view/postgresql/tableList" id="back-to-list-link" class="action-link">← 返回資料表列表</a>
+
+    <a href="#" id="execute-sql-link" class="action-link" target="_blank">⚡ 執行自訂 SQL</a>
+
+    <a href="#" id="view-data-link" class="action-link">🔍 檢視資料（限制 5000 筆）</a>
   </div>
 </div>
 
 <script>
   const API_BASE_URL = "http://localhost:8020/DBridge/api/postgresql";
+  const SQL_EXECUTE_URL = "http://localhost:8020/DBridge/view/postgresql/sqlExecute";
 
   // 取得 URL 參數
   const urlParams = new URLSearchParams(window.location.search);
   const tableName = urlParams.get('tableName');
-  const tableSchema = urlParams.get('schema'); // 確保正確取得 schema 參數
+  const tableSchema = urlParams.get('schema');
 
   // 檢查 URL 參數
   if (!tableName || !tableSchema) {
@@ -137,7 +154,7 @@
 
               // 填充基本資訊
               document.getElementById("page-title").textContent = `資料表詳情：${data.tableName}`;
-              document.getElementById("table-title").textContent = `資料表詳情：${data.tableName}`;
+              document.getElementById("table-title").textContent = `資料表詳情：${data.tableName} (${tableSchema})`;
               document.getElementById("table-remarks").textContent = data.remarks || "無描述";
 
               // 填充欄位表格
@@ -171,14 +188,14 @@
 
               // 取得連結元素
               const viewDataLink = document.getElementById("view-data-link");
-              const backLink = document.querySelector(".back-link"); // 取得「返回資料表列表」連結
+              const backToListLink = document.getElementById("back-to-list-link");
+              const executeSqlLink = document.getElementById("execute-sql-link");
 
-              // 更新 "檢視資料" 連結 (原有的邏輯，保持不動)
+              // 設定連結的 href 屬性
+              backToListLink.href = `/DBridge/view/postgresql/tableList?schema=${encodeURIComponent(tableSchema)}`;
+              executeSqlLink.href = `${SQL_EXECUTE_URL}?schema=${encodeURIComponent(tableSchema)}`;
               viewDataLink.href = `/DBridge/view/postgresql/tableData?tableName=${encodeURIComponent(data.tableName)}&schema=${encodeURIComponent(tableSchema)}`;
 
-              // ✅ 核心修改：更新「返回資料表列表」連結
-              // 從 URL 取得的 tableSchema 已經是正確的值
-              backLink.href = `/DBridge/view/postgresql/tableList?schema=${encodeURIComponent(tableSchema)}`;
             })
             .catch(error => {
               console.error("載入資料失敗:", error);
