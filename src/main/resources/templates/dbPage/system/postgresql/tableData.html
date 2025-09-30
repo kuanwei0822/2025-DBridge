@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title id="page-title">資料表資料檢視</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2em;
+            line-height: 1.6;
+            background-color: #f4f7f6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #4b6cb7;
+            border-bottom: 2px solid #4b6cb7;
+            padding-bottom: 0.5em;
+            margin-bottom: 1.5em;
+        }
+
+        /* 查詢控制項 */
+        .controls {
+            margin-bottom: 1em;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        label {
+            font-weight: bold;
+            color: #333;
+        }
+        #page-size-select {
+            padding: 8px 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+            color: #333;
+            cursor: pointer;
+        }
+
+        /* 訊息區塊 */
+        .message-box {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            word-break: break-all;
+        }
+        .info {
+            background-color: #e0f7fa;
+            color: #00838f;
+            border: 1px solid #00acc1;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* 結果表格樣式 */
+        #results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.9em;
+            table-layout: fixed;
+        }
+        #results-table th, #results-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            word-break: break-word;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-height: 3em;
+        }
+        #results-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        #results-table th.sorted-asc::after {
+            content: " ▲";
+        }
+        #results-table th.sorted-desc::after {
+            content: " ▼";
+        }
+        #results-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* 分頁樣式 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 15px;
+            gap: 5px; /* 使用 gap 來間隔按鈕 */
+        }
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+            /* 調整 margin 以容納新增的 ... span */
+            margin: 0 1px;
+        }
+        .pagination button:hover:not(:disabled) {
+            background-color: #e0e0e0;
+        }
+        .pagination button.active {
+            background-color: #4b6cb7;
+            color: white;
+            border-color: #4b6cb7;
+        }
+        .pagination-info {
+            margin: 0 15px;
+            font-weight: bold;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .back-link:hover {
+            background-color: #0056b3;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <a href="#" id="back-to-metadata-link" class="back-link">← 返回資料表詳情</a>
+
+    <h1 id="table-title">載入資料表資料...</h1>
+
+    <div class="controls">
+        <label for="page-size-select">每頁顯示:</label>
+        <select id="page-size-select">
+            <option value="10">10 筆</option>
+            <option value="25">25 筆</option>
+            <option value="50" selected>50 筆</option>
+            <option value="100">100 筆</option>
+            <option value="200">200 筆</option>
+        </select>
+
+        <span id="loading-indicator" style="margin-left: 20px; color: #4b6cb7; display: none;">
+            <i class="fa fa-spinner fa-spin"></i> 資料載入中...
+        </span>
+    </div>
+
+    <div id="message-area" class="message-box info">
+        正在載入資料...
+    </div>
+
+    <table id="results-table" style="display: none;">
+        <thead>
+        <tr id="results-header"></tr>
+        </thead>
+        <tbody id="results-body">
+        </tbody>
+    </table>
+
+    <div id="pagination-controls">
+    </div>
+
+</div>
+
+<script>
+    const API_BASE_URL = "http://localhost:8020/DBridge/api/postgresql";
+    const DATA_QUERY_URL = `${API_BASE_URL}/table/data`;
+
+    // 取得 URL 參數
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableName = urlParams.get('tableName');
+    const tableSchema = urlParams.get('schema');
+
+    // 元素參照
+    const titleElement = document.getElementById("table-title");
+    const messageArea = document.getElementById("message-area");
+    const resultsTable = document.getElementById("results-table");
+    const resultsHeader = document.getElementById("results-header");
+    const resultsBody = document.getElementById("results-body");
+    const pageSizeSelect = document.getElementById("page-size-select");
+    const paginationControls = document.getElementById("pagination-controls");
+    const loadingIndicator = document.getElementById("loading-indicator");
+    const backLink = document.getElementById("back-to-metadata-link");
+
+    // 全域分頁狀態
+    let currentPage = 1;
+    let totalCount = 0;
+    let pageSize = parseInt(pageSizeSelect.value, 10);
+    let currentOrderByColumn = null;
+    let currentSortDirection = 'ASC'; // 'ASC' or 'DESC'
+
+    // 輔助函數：HTML 編碼
+    function escapeHtml(s) {
+        if (s === null || typeof s === 'undefined') return '';
+        s = String(s);
+        return s.replace(/[&<>"']/g, c => ({
+            "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        }[c]));
+    }
+
+    // 1. 只更新訊息區塊的內容和樣式
+    function updateStatusMessage(message, type = 'info') {
+        messageArea.textContent = message;
+        messageArea.className = `message-box ${type}`;
+    }
+
+    // 2. 處理錯誤和載入狀態，此時才需要隱藏表格和清除內容
+    function handleErrorOrLoading(message, type = 'error') {
+        updateStatusMessage(message, type);
+        resultsTable.style.display = 'none';
+        resultsBody.innerHTML = '';
+        paginationControls.innerHTML = '';
+    }
+
+    // 渲染表格的標頭 (一次性)
+    function renderTableHeaders(columnNames) {
+        // 清除舊的排序標記
+        Array.from(resultsHeader.querySelectorAll('th')).forEach(th => {
+            th.classList.remove('sorted-asc', 'sorted-desc');
+        });
+
+        const headersHtml = columnNames.map(col => {
+            const escapedCol = escapeHtml(col);
+            let sortClass = '';
+            if (currentOrderByColumn === col) {
+                sortClass = currentSortDirection === 'ASC' ? 'sorted-asc' : 'sorted-desc';
+            }
+            return `<th class="${sortClass}" data-column="${escapedCol}">${escapedCol}</th>`;
+        }).join('');
+
+        resultsHeader.innerHTML = headersHtml;
+
+        // 綁定標頭點擊事件 (排序)
+        resultsHeader.querySelectorAll('th').forEach(th => {
+            th.addEventListener('click', () => {
+                handleSort(th.dataset.column);
+            });
+        });
+    }
+
+    // 渲染表格的資料 (每次分頁切換)
+    function renderTableBody(rows, columnNames) {
+        const rowsHtml = rows.map(row => {
+            const cellHtml = columnNames.map(col => {
+                const cellValue = row[col] === null || typeof row[col] === 'undefined' || row[col] === "" ? '—' : row[col];
+                return `<td>${escapeHtml(cellValue)}</td>`;
+            }).join('');
+            return `<tr>${cellHtml}</tr>`;
+        }).join('');
+
+        resultsBody.innerHTML = rowsHtml;
+        resultsTable.style.display = 'table';
+    }
+
+    // ✅ 關鍵優化：渲染分頁控制按鈕 (採用優化邏輯)
+    function renderPaginationControls() {
+        const totalPages = Math.ceil(totalCount / pageSize);
+
+        if (totalPages <= 1) {
+            paginationControls.innerHTML = '';
+            return;
+        }
+
+        let controlsHtml = '<div class="pagination">';
+
+        // 總資訊
+        controlsHtml += `<span class="pagination-info">共 ${totalCount} 筆，${totalPages} 頁</span>`;
+
+        // 上一頁按鈕 (文字優化)
+        controlsHtml += `<button id="prev-btn" ${currentPage === 1 ? 'disabled' : ''}>← 上一頁</button>`;
+
+        // --- 頁碼按鈕邏輯 ---
+        const maxButtons = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+        if (endPage - startPage + 1 < maxButtons) {
+            startPage = Math.max(1, endPage - maxButtons + 1);
+        }
+
+        const pageNumbersToShow = new Set();
+        pageNumbersToShow.add(1);
+        for (let i = startPage; i <= endPage; i++) {
+            pageNumbersToShow.add(i);
+        }
+        pageNumbersToShow.add(totalPages);
+
+        const sortedPages = Array.from(pageNumbersToShow).sort((a, b) => a - b);
+        let lastPage = 0;
+
+        sortedPages.forEach(i => {
+            if (i - lastPage > 1) {
+                // 顯示省略號
+                controlsHtml += `<span style="margin: 0 5px;">...</span>`;
+            }
+            const activeClass = i === currentPage ? 'active' : '';
+            // 點擊後呼叫 fetchTableData 重新抓取資料
+            controlsHtml += `<button class="${activeClass}" onclick="fetchTableData(${i})">${i}</button>`;
+            lastPage = i;
+        });
+        // --- 頁碼按鈕邏輯結束 ---
+
+        // 下一頁按鈕 (文字優化)
+        controlsHtml += `<button id="next-btn" ${currentPage === totalPages ? 'disabled' : ''}>下一頁 →</button>`;
+
+        controlsHtml += '</div>';
+
+        paginationControls.innerHTML = controlsHtml;
+
+        // 綁定上下頁按鈕事件
+        document.getElementById('prev-btn').onclick = () => {
+            if (currentPage > 1) fetchTableData(currentPage - 1);
+        };
+        document.getElementById('next-btn').onclick = () => {
+            if (currentPage < totalPages) fetchTableData(currentPage + 1);
+        };
+    }
+
+    // 處理排序邏輯
+    function handleSort(columnName) {
+        if (currentOrderByColumn === columnName) {
+            currentSortDirection = currentSortDirection === 'ASC' ? 'DESC' : 'ASC';
+        } else {
+            currentOrderByColumn = columnName;
+            currentSortDirection = 'ASC';
+        }
+        fetchTableData(1);
+    }
+
+    // 主邏輯：獲取資料
+    async function fetchTableData(page = 1) {
+        if (!tableName || !tableSchema) {
+            handleErrorOrLoading("錯誤：URL 缺少 Schema 或 Table Name 參數。", 'error');
+            return;
+        }
+
+        currentPage = page;
+        loadingIndicator.style.display = 'inline';
+        updateStatusMessage(`正在查詢資料表 ${tableSchema}.${tableName} 的第 ${currentPage} 頁...`, 'info');
+
+        const requestBody = {
+            schema: tableSchema,
+            tableName: tableName,
+            pageNumber: currentPage,
+            pageSize: pageSize,
+            orderByColumn: currentOrderByColumn,
+            sortDirection: currentSortDirection
+        };
+
+        try {
+            const response = await fetch(DATA_QUERY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+
+            const apiResponse = await response.json();
+            loadingIndicator.style.display = 'none';
+
+            if (apiResponse.code !== "0") {
+                const errorMessage = apiResponse.message || "查詢資料失敗";
+                handleErrorOrLoading(`查詢失敗: ${errorMessage}`, 'error');
+                return;
+            }
+
+            const result = apiResponse.data;
+
+            if (!result || !Array.isArray(result.rows)) {
+                handleErrorOrLoading("API 回傳結構錯誤或 rows 欄位缺失。", 'error');
+                return;
+            }
+
+            totalCount = result.totalCount || 0;
+            const columnNames = result.columnNames || [];
+
+            if (totalCount === 0 || columnNames.length === 0) {
+                handleErrorOrLoading(`資料表 ${tableSchema}.${tableName} 無任何資料。`, 'info');
+                return;
+            }
+
+            // 渲染
+            renderTableHeaders(columnNames);
+            renderTableBody(result.rows, columnNames);
+            renderPaginationControls();
+
+            // 更新成功訊息
+            const totalPages = Math.ceil(totalCount / pageSize);
+            updateStatusMessage(`查詢成功：共 ${totalCount} 筆資料。當前頁面：${currentPage} / ${totalPages} (每頁 ${pageSize} 筆)`, 'info');
+
+        } catch (error) {
+            loadingIndicator.style.display = 'none';
+            console.error("Fetch API 失敗:", error);
+            handleErrorOrLoading(`連線或網路錯誤: ${error.message || '請檢查 API 服務'}`, 'error');
+        }
+    }
+
+
+    // 核心啟動邏輯
+    document.addEventListener("DOMContentLoaded", () => {
+        // 1. 檢查並設定標題
+        if (!tableName || !tableSchema) {
+            titleElement.textContent = "錯誤：缺少參數";
+            handleErrorOrLoading("URL 缺少必要的 schema 或 tableName 參數。", 'error');
+            return;
+        }
+        titleElement.textContent = `資料表資料檢視：${tableSchema}.${tableName}`;
+        document.getElementById("page-title").textContent = `資料表資料檢視：${tableSchema}.${tableName}`;
+
+        // 2. 設定「返回資料表詳情」連結
+        backLink.href = `/DBridge/view/postgresql/tableMetadata?tableName=${encodeURIComponent(tableName)}&schema=${encodeURIComponent(tableSchema)}`;
+
+        // 3. 綁定每頁筆數變動事件
+        pageSizeSelect.addEventListener("change", (event) => {
+            pageSize = parseInt(event.target.value, 10);
+            fetchTableData(1);
+        });
+
+        // 4. 首次載入資料
+        fetchTableData(1);
+    });
+</script>
+
+</body>
+</html>
