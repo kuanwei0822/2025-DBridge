@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title id="page-title">資料表資料檢視</title>
+
+    <th:block th:if="${_csrf}">
+        <meta name="_csrf" th:content="${_csrf.token}"/>
+        <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    </th:block>
+
     <style>
         body {
             font-family: sans-serif;
@@ -104,7 +110,7 @@
             justify-content: center;
             align-items: center;
             margin-top: 15px;
-            gap: 5px; /* 使用 gap 來間隔按鈕 */
+            gap: 5px;
         }
         .pagination button {
             padding: 8px 12px;
@@ -113,7 +119,6 @@
             cursor: pointer;
             border-radius: 4px;
             transition: all 0.2s;
-            /* 調整 margin 以容納新增的 ... span */
             margin: 0 1px;
         }
         .pagination button:hover:not(:disabled) {
@@ -188,6 +193,10 @@
     const API_BASE_URL = "/DBridge/api/postgresql";
     const DATA_QUERY_URL = `${API_BASE_URL}/table/data`;
 
+    // 💡 步驟 2: 獲取 CSRF Token 和 Header 名稱
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+
     // 取得 URL 參數
     const urlParams = new URLSearchParams(window.location.search);
     const tableName = urlParams.get('tableName');
@@ -210,6 +219,24 @@
     let pageSize = parseInt(pageSizeSelect.value, 10);
     let currentOrderByColumn = null;
     let currentSortDirection = 'ASC'; // 'ASC' or 'DESC'
+
+    // 💡 步驟 3: 輔助函數 - 取得帶有 CSRF Header 的請求設定
+    function getRequestOptions(bodyData) {
+        const options = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(bodyData)
+        };
+
+        // 如果 CSRF Token 存在，就將其加入到 Headers 中
+        if (csrfToken && csrfHeader) {
+            options.headers[csrfHeader] = csrfToken;
+        }
+        return options;
+    }
+
 
     // 輔助函數：HTML 編碼
     function escapeHtml(s) {
@@ -274,7 +301,7 @@
         resultsTable.style.display = 'table';
     }
 
-    // ✅ 關鍵優化：渲染分頁控制按鈕 (採用優化邏輯)
+    // 渲染分頁控制按鈕
     function renderPaginationControls() {
         const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -370,11 +397,8 @@
         };
 
         try {
-            const response = await fetch(DATA_QUERY_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
+            // 💡 步驟 4: 使用 getRequestOptions 替換 fetch 參數，帶上 CSRF Token
+            const response = await fetch(DATA_QUERY_URL, getRequestOptions(requestBody));
 
             const apiResponse = await response.json();
             loadingIndicator.style.display = 'none';

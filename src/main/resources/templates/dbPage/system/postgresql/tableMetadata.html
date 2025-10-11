@@ -1,8 +1,14 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
 <head>
   <meta charset="UTF-8">
   <title id="page-title">資料表詳情</title>
+
+  <th:block th:if="${_csrf}">
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+  </th:block>
+
   <style>
     body {
       font-family: sans-serif;
@@ -105,12 +111,34 @@
 
 <script>
   const API_BASE_URL = "/DBridge/api/postgresql";
-  const SQL_EXECUTE_URL = "/DBridge/view/postgresql/sqlExecute";
+  const METADATA_QUERY_URL = `${API_BASE_URL}/table/metadata`;
+  const SQL_EXECUTE_VIEW_URL = "/DBridge/view/postgresql/sqlExecute";
+
+  // 💡 步驟 2: 獲取 CSRF Token 和 Header 名稱
+  const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+  const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
 
   // 取得 URL 參數
   const urlParams = new URLSearchParams(window.location.search);
   const tableName = urlParams.get('tableName');
   const tableSchema = urlParams.get('schema');
+
+  // 💡 步驟 3: 輔助函數 - 取得帶有 CSRF Header 的請求設定
+  function getRequestOptions(bodyData) {
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(bodyData)
+    };
+
+    // 如果 CSRF Token 存在，就將其加入到 Headers 中
+    if (csrfToken && csrfHeader) {
+      options.headers[csrfHeader] = csrfToken;
+    }
+    return options;
+  }
 
   // 檢查 URL 參數
   if (!tableName || !tableSchema) {
@@ -120,15 +148,11 @@
 
   // 載入資料表 Metadata
   function fetchTableMetadata() {
-    const apiUrl = `${API_BASE_URL}/table/metadata`;
+    // 請求的 Body 數據
+    const requestBody = { schema: tableSchema, tableName: tableName };
 
-    fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ schema: tableSchema, tableName: tableName })
-    })
+    // 💡 步驟 4: 使用 getRequestOptions 替換 fetch 參數
+    fetch(METADATA_QUERY_URL, getRequestOptions(requestBody))
             .then(response => {
               if (!response.ok) {
                 throw new Error(`HTTP 錯誤! 狀態碼: ${response.status}`);
@@ -193,7 +217,8 @@
 
               // 設定連結的 href 屬性
               backToListLink.href = `/DBridge/view/postgresql/tableList?schema=${encodeURIComponent(tableSchema)}`;
-              executeSqlLink.href = `${SQL_EXECUTE_URL}?schema=${encodeURIComponent(tableSchema)}`;
+              // 帶入當前 schema 參數
+              executeSqlLink.href = `${SQL_EXECUTE_VIEW_URL}?schema=${encodeURIComponent(tableSchema)}`;
               viewDataLink.href = `/DBridge/view/postgresql/tableData?tableName=${encodeURIComponent(data.tableName)}&schema=${encodeURIComponent(tableSchema)}`;
 
             })

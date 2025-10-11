@@ -1,8 +1,14 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>資料表列表</title>
+
+    <th:block th:if="${_csrf}">
+        <meta name="_csrf" th:content="${_csrf.token}"/>
+        <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    </th:block>
+
     <style>
         body {
             font-family: sans-serif;
@@ -45,7 +51,6 @@
         .controls {
             margin-bottom: 1em;
         }
-        /* 新增的樣式 */
         label {
             font-weight: bold;
             color: #333;
@@ -95,10 +100,32 @@
 
 <script>
     const API_BASE_URL = "/DBridge/api/postgresql";
+    const SCHEMAS_URL = `${API_BASE_URL}/schemas`;
+    const TABLES_METADATA_URL = `${API_BASE_URL}/tables/metadata`;
 
-    // 取得資料表列表並渲染到頁面 (此函數邏輯保持不變)
+    // 💡 步驟 2: 獲取 CSRF Token 和 Header 名稱
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+
+    // 💡 步驟 3: 輔助函數 - 取得帶有 CSRF Header 的請求設定
+    function getRequestOptions(bodyData) {
+        const options = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(bodyData)
+        };
+
+        // 如果 CSRF Token 存在，就將其加入到 Headers 中
+        if (csrfToken && csrfHeader) {
+            options.headers[csrfHeader] = csrfToken;
+        }
+        return options;
+    }
+
+    // 取得資料表列表並渲染到頁面
     function fetchAndRenderTables(schema) {
-        const apiUrl = `${API_BASE_URL}/tables/metadata`;
         const tableBody = document.getElementById("table-body");
 
         tableBody.innerHTML = '<tr><td colspan="2">載入中…</td></tr>';
@@ -108,13 +135,8 @@
             return;
         }
 
-        fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ schema: schema })
-        })
+        // 💡 步驟 4: 使用 getRequestOptions 替換 fetch 參數
+        fetch(TABLES_METADATA_URL, getRequestOptions({ schema: schema }))
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP 錯誤! 狀態碼: ${response.status}`);
@@ -159,19 +181,12 @@
     }
 
     // 取得 Schema 列表並填充下拉式選單
-    // ✅ 核心變動：接受一個 defaultSchemaName 參數，用於預選
     function fetchSchemasAndPopulateDropdown(defaultSchemaName) {
-        const schemasUrl = `${API_BASE_URL}/schemas`;
         const selectElement = document.getElementById("schema-select");
         let initialSchemaToLoad = null;
 
-        fetch(schemasUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({})
-        })
+        // 💡 步驟 5: 使用 getRequestOptions 替換 fetch 參數
+        fetch(SCHEMAS_URL, getRequestOptions({}))
             .then(response => response.json())
             .then(apiResponse => {
                 if (apiResponse.code !== "0") {
@@ -203,8 +218,6 @@
                 selectElement.innerHTML = optionsHtml;
 
                 // 3. 確定最終要載入的 Schema：
-                //    - 如果 URL 有傳，就載入 URL 傳入的 (initialSchemaToLoad)
-                //    - 如果 URL 沒傳，就載入列表中的第一個 (selectElement.value)
                 const schemaToLoad = initialSchemaToLoad || selectElement.value;
 
                 // 4. 首次載入頁面時，使用確定的 schema
@@ -225,25 +238,17 @@
         }[c]));
     }
 
-    // ✅ 核心啟動邏輯：完全由前端 JavaScript 負責讀取 URL 參數
+    // 核心啟動邏輯
     document.addEventListener("DOMContentLoaded", () => {
-        // 使用 URLSearchParams 原生物件讀取 URL 參數
         const urlParams = new URLSearchParams(window.location.search);
-
-        // 取得 URL 中名為 'schema' 的參數值 (例如: ?schema=public)
         const initialSchema = urlParams.get('schema');
 
-        // 1. 載入 Schema 列表，並傳入從 URL 讀取的參數進行預選
-        //    如果 URL 沒有參數，則傳入 null
         fetchSchemasAndPopulateDropdown(initialSchema);
 
-        // 2. 設置下拉選單的變動事件
         const selectElement = document.getElementById("schema-select");
         selectElement.addEventListener("change", (event) => {
-            // 當使用者切換 Schema 時，更新表格
             fetchAndRenderTables(event.target.value);
 
-            // 💡 UX 建議：同時更新瀏覽器的 URL，這樣使用者才能將當前頁面加入書籤
             if (event.target.value) {
                 const newUrl = `${window.location.pathname}?schema=${encodeURIComponent(event.target.value)}`;
                 window.history.pushState({ path: newUrl }, '', newUrl);

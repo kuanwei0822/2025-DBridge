@@ -4,12 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>首頁 - 歡迎</title>
+
+  <th:block th:if="${_csrf}">
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+  </th:block>
+
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background-color: #eef2f5;
       display: flex;
-      flex-direction: column; /* 垂直排列 */
+      flex-direction: column;
       align-items: center;
       min-height: 100vh;
       margin: 0;
@@ -30,7 +36,7 @@
     }
 
     .header h1 {
-      color: #3f51b5; /* Spring Blue */
+      color: #3f51b5;
       margin: 0;
       font-weight: 600;
       font-size: 2.2em;
@@ -49,7 +55,7 @@
     }
 
     .logout-form button {
-      background-color: #f44336; /* Red */
+      background-color: #f44336;
       color: white;
       border: none;
       padding: 8px 15px;
@@ -60,16 +66,16 @@
     }
 
     .logout-form button:hover {
-      background-color: #d32f2f; /* Darker Red */
+      background-color: #d32f2f;
     }
 
     .container {
       display: flex;
-      flex-wrap: wrap; /* 允許換行 */
-      gap: 30px; /* 區塊間距 */
+      flex-wrap: wrap;
+      gap: 30px;
       width: 100%;
       max-width: 900px;
-      justify-content: center; /* 內容居中 */
+      justify-content: center;
     }
 
     .card {
@@ -78,8 +84,8 @@
       border-radius: 8px;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
       text-align: center;
-      flex: 1; /* 彈性佔用空間 */
-      min-width: 300px; /* 最小寬度 */
+      flex: 1;
+      min-width: 300px;
       max-width: 450px;
       transition: transform 0.2s ease-in-out;
     }
@@ -98,14 +104,14 @@
 
     .button-group {
       display: flex;
-      flex-direction: column; /* 垂直排列按鈕 */
-      gap: 15px; /* 按鈕間距 */
+      flex-direction: column;
+      gap: 15px;
     }
 
     .connect-button {
       width: 100%;
       padding: 15px;
-      background-color: #4caf50; /* Green */
+      background-color: #4caf50;
       color: white;
       border: none;
       border-radius: 6px;
@@ -113,21 +119,21 @@
       font-weight: 600;
       cursor: pointer;
       transition: background-color 0.3s ease;
-      text-decoration: none; /* 移除 a 標籤底線 */
-      display: block; /* 讓 a 標籤像塊級元素 */
-      box-sizing: border-box; /* 包含 padding 和 border 在寬度內 */
+      text-decoration: none;
+      display: block;
+      box-sizing: border-box;
     }
 
     .connect-button:hover {
-      background-color: #388e3c; /* Darker Green */
+      background-color: #388e3c;
     }
 
     .custom-connect-button {
-      background-color: #2196f3; /* Blue */
+      background-color: #2196f3;
     }
 
     .custom-connect-button:hover {
-      background-color: #1976d2; /* Darker Blue */
+      background-color: #1976d2;
     }
 
     /* 手機板適配 */
@@ -145,7 +151,7 @@
       }
       .card {
         width: 90%;
-        min-width: unset; /* 移除最小寬度限制 */
+        min-width: unset;
         max-width: 90%;
       }
     }
@@ -154,26 +160,34 @@
 <body>
 <div class="header">
   <h1>歡迎來到管理系統</h1>
-  <div class="user-info">
-    <span sec:authentication="name">用戶名</span>
+
+  <div class="user-info" th:if="${_csrf}">
+    <span sec:authentication="name">系統管理者</span>
+
     <form th:action="@{/logout}" method="post" class="logout-form">
-      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+      <div th:if="${_csrf}">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+      </div>
       <button type="submit">登出</button>
     </form>
   </div>
+
+  <div class="user-info" th:unless="${_csrf}">
+    <span>訪客模式</span>
+    <a th:href="@{/login}" class="connect-button custom-connect-button" style="margin-left: 15px; padding: 5px 10px;">登入</a>
+  </div>
+
 </div>
 
 <div class="container">
-  <!-- 系統連線區塊 -->
   <div class="card system-connections">
     <h3>系統連線</h3>
     <div class="button-group">
-      <a href="/DBridge/db/system/postgresql" class="connect-button">PostgreSQL 連線</a>
+      <a href="/DBridge/view/postgresql/tableList" class="connect-button" target="_blank">PostgreSQL 連線</a>
       <a href="/DBridge/db/system/mongodb" class="connect-button">MongoDB 連線</a>
     </div>
   </div>
 
-  <!-- 自訂連線區塊 -->
   <div class="card custom-connection">
     <h3>自訂連線</h3>
     <div class="button-group">
