@@ -34,8 +34,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .csrf(csrf -> csrf
+                        // 用於判斷是否登入狀態的 API 不需要 CSRF 保護
+                        .ignoringRequestMatchers("/api/module/status/auth")
+                )
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers( "/login").permitAll()
+                        // api/module/status/auth 用於判斷是否登入狀態的 API 不需要登入驗證
+                        .requestMatchers( "/api/module/status/auth", "/login", "/error").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form // 登入頁面設定

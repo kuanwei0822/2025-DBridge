@@ -2,7 +2,14 @@
 <html lang="zh-TW" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>執行自訂 SQL</title>
+
+    <th:block th:if="${_csrf}">
+        <meta name="_csrf" th:content="${_csrf.token}"/>
+        <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    </th:block>
+
     <style>
         body {
             font-family: sans-serif;
@@ -25,21 +32,18 @@
             text-align: center;
             margin-bottom: 1.5em;
         }
-        /* 新增的 Schema 選擇樣式 */
         .controls {
             margin-bottom: 1em;
             display: flex;
             align-items: center;
-            /* 讓控制項之間有間隔 */
             gap: 15px;
-            flex-wrap: wrap; /* 防止內容過多時溢出 */
+            flex-wrap: wrap;
         }
         label {
             font-weight: bold;
             color: #333;
-            /* 移除多餘的 margin-right */
         }
-        #schema-select, #page-size-select { /* 共同樣式 */
+        #schema-select, #page-size-select {
             padding: 8px 12px;
             font-size: 16px;
             border: 1px solid #ddd;
@@ -53,7 +57,6 @@
             border-color: #007BFF;
             box-shadow: 0 0 5px rgba(0, 123, 255, 0.25);
         }
-        /* SQL 編輯器區塊 */
         .sql-editor-container {
             margin-bottom: 20px;
             border: 1px solid #ddd;
@@ -73,7 +76,6 @@
             outline: none;
             background-color: #f9f9f9;
         }
-        /* 執行按鈕 */
         #execute-btn {
             background-color: #4b6cb7;
             color: white;
@@ -89,8 +91,6 @@
         #execute-btn:hover {
             background-color: #3f5a9e;
         }
-
-        /* 查詢結果區塊 */
         .results-container {
             margin-top: 30px;
         }
@@ -117,8 +117,6 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-
-        /* 結果表格樣式 */
         #results-table {
             width: 100%;
             border-collapse: collapse;
@@ -138,8 +136,6 @@
         #results-table tr:nth-child(even) {
             background-color: #f9f9f9;
         }
-
-        /* 分頁樣式 */
         .pagination button {
             padding: 8px 12px;
             margin: 0 5px;
@@ -210,6 +206,11 @@
     const SQL_EXECUTE_URL = `${API_BASE_URL}/sqlExecute`;
     const SCHEMAS_URL = `${API_BASE_URL}/schemas`;
 
+    // 💡 步驟 2: 獲取 CSRF Token 和 Header 名稱
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+
+
     const sqlTextarea = document.getElementById("sql-textarea");
     const executeBtn = document.getElementById("execute-btn");
     const messageArea = document.getElementById("message-area");
@@ -219,12 +220,29 @@
     const selectElement = document.getElementById("schema-select");
     const loadingMessage = document.getElementById("loading-schemas-message");
     const paginationControls = document.getElementById("pagination-controls");
-    const pageSizeSelect = document.getElementById("page-size-select"); // ✅ 新增 Page Size Select 元素
+    const pageSizeSelect = document.getElementById("page-size-select");
 
-    // ✅ 動態讀取初始的每頁筆數
     let ROWS_PER_PAGE = parseInt(pageSizeSelect.value, 10);
     let allResults = [];
     let currentPage = 1;
+
+    // 💡 步驟 3: 輔助函數 - 取得帶有 CSRF Header 的請求設定
+    function getRequestOptions(bodyData) {
+        const options = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(bodyData)
+        };
+
+        // 如果 CSRF Token 存在，就將其加入到 Headers 中
+        if (csrfToken && csrfHeader) {
+            options.headers[csrfHeader] = csrfToken;
+        }
+        return options;
+    }
+
 
     // 輔助函數：顯示訊息
     function displayMessage(message, type = 'info') {
@@ -267,7 +285,7 @@
     // 渲染分頁控制按鈕
     function renderPaginationControls() {
         const totalRows = allResults.length;
-        const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE); // ✅ 使用動態 ROWS_PER_PAGE
+        const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
 
         if (totalPages <= 1) {
             paginationControls.innerHTML = '';
@@ -279,7 +297,7 @@
         // 上一頁按鈕
         controlsHtml += `<button id="prev-btn" ${currentPage === 1 ? 'disabled' : ''}>← 上一頁</button>`;
 
-        // 頁碼按鈕 (只顯示當前頁附近最多 5 個頁碼，並確保顯示首頁和末頁)
+        // 頁碼按鈕
         const maxButtons = 5;
         let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
         let endPage = Math.min(totalPages, startPage + maxButtons - 1);
@@ -322,15 +340,12 @@
     }
 
 
-    // 取得 Schema 列表並填充下拉式選單
+    // 取得 Schema 列表並填充下拉式選單 (POST API)
     function fetchSchemasAndPopulateDropdown(defaultSchemaName) {
         loadingMessage.style.display = 'inline';
 
-        fetch(SCHEMAS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        })
+        // 💡 步驟 4: 使用 getRequestOptions 替換舊的 fetch 參數
+        fetch(SCHEMAS_URL, getRequestOptions({}))
             .then(response => response.json())
             .then(apiResponse => {
                 loadingMessage.style.display = 'none';
@@ -385,7 +400,7 @@
     }
 
 
-    // 主邏輯：執行 SQL 查詢 (已更新分頁邏輯)
+    // 主邏輯：執行 SQL 查詢 (POST API)
     async function executeSql() {
         const sqlStatement = sqlTextarea.value.trim();
         const currentSchema = selectElement.value;
@@ -398,12 +413,11 @@
         executeBtn.disabled = true;
         displayMessage("執行中...", 'info');
 
+        const requestBody = { schema: currentSchema, sqlStatement: sqlStatement };
+
         try {
-            const response = await fetch(SQL_EXECUTE_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ schema: currentSchema, sqlStatement: sqlStatement })
-            });
+            // 💡 步驟 5: 使用 getRequestOptions 替換舊的 fetch 參數
+            const response = await fetch(SQL_EXECUTE_URL, getRequestOptions(requestBody));
 
             const apiResponse = await response.json();
 
@@ -443,7 +457,7 @@
                 resultsTable.style.display = 'table';
 
                 // 4. 更新訊息區
-                messageArea.textContent = `查詢成功：共 ${allResults.length} 筆結果。每頁顯示 ${ROWS_PER_PAGE} 筆。`; // ✅ 顯示動態 Page Size
+                messageArea.textContent = `查詢成功：共 ${allResults.length} 筆結果。每頁顯示 ${ROWS_PER_PAGE} 筆。`;
                 messageArea.className = 'message-box success';
 
             } else {
@@ -474,14 +488,14 @@
             displayMessage(`已切換 Search Path 為: ${newSchema}。請執行 SQL 語句。`);
         });
 
-        // 5. ✅ 綁定每頁筆數變動事件
+        // 5. 綁定每頁筆數變動事件
         pageSizeSelect.addEventListener("change", (event) => {
             ROWS_PER_PAGE = parseInt(event.target.value, 10);
 
             // 如果目前有查詢結果，則重新渲染表格和分頁，並回到第一頁
             if (allResults.length > 0) {
                 renderTablePage(1);
-                messageArea.textContent = `查詢成功：共 ${allResults.length} 筆結果。每頁顯示 ${ROWS_PER_PAGE} 筆。`; // ✅ 更新訊息
+                messageArea.textContent = `查詢成功：共 ${allResults.length} 筆結果。每頁顯示 ${ROWS_PER_PAGE} 筆。`;
                 messageArea.className = 'message-box success';
             } else {
                 // 僅更新顯示訊息 (如果沒有結果)
