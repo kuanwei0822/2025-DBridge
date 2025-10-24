@@ -1,11 +1,22 @@
 # 2025-DBridge
 自製 DB Client 程式
 
-## 開發筆記
-
-### JAVA 版本
+## 要求 JAVA 版本
 
 - 17 (OpenJDK or Oracle JDK)
+
+## Security
+
+### 可啟用或關閉登入功能
+- 可以在 `application.properties` 設定 `login.active` = `true` 或 `false` 來啟用或關閉登入功能。
+
+### 加入 CSRF 防禦
+- 預設啟用 CSRF 防禦。
+- 只有通過我方給的頁面帶入 CSRF Token 的 Rest 請求才會被接受。
+- 即使惡意頁面在請求中攜帶使用者的 Session Cookie，若沒有 CSRF Token，Server 仍會拒絕該請求。
+
+
+## 開發筆記
 
 ### Docker Compose 設定
 
